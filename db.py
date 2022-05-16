@@ -7,6 +7,9 @@ class DB:
     def __init__(self, sqlite_fn):
         self.conn = sqlite3.connect(sqlite_fn)
 
+    def __del__(self):
+        self.conn.close()
+
     def prepare(self):
         cursor = self.conn.cursor()
         cursor.execute(

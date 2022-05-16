@@ -1,5 +1,6 @@
 import sys
 import sqlite3
+import logging
 
 from entites import Author, User, Review, Story
 
@@ -96,9 +97,9 @@ class DB:
                 '''INSERT INTO user VALUES (?)''', (user.id,)
             )
             self.conn.commit()
-            print('Add new user:', user.username)
+            logging.debug(f'Add new user: {user.username}')
         else:
-            print('User with id={} already in db'.format(user.id))
+            logging.debug(f'User with {user.id=} already in db')
 
     def save_review(self, review: Review):
         cursor = self.conn.cursor()
@@ -173,7 +174,7 @@ class DB:
             (user.id, author_name)
         ).fetchall()
         if len(authors) > 1:
-            print("ERROR: more than one unique author!")
+            logging.critical(f'[{user.id=}] More than one unique author: `{author_name}`')
             sys.exit(1)
         return -1 if not authors else authors[0]
 
@@ -220,11 +221,10 @@ class DB:
 
 
 if __name__ == '__main__':
-    db = DB('test.db')
-    conn = db.connect()
-    db.prepare(conn)
+    db = DB(':memory:')
+    db.prepare()
 
-    cursor = self.conn.cursor()
+    cursor = db.conn.cursor()
     cursor.execute(
         '''
         INSERT INTO user VALUES (7155816)
@@ -233,4 +233,3 @@ if __name__ == '__main__':
 
     for row in cursor.execute('SELECT * from user'):
         print(row)
-    self.conn.close()

@@ -12,7 +12,7 @@ from telegram.ext import (
 
 from db import DB
 from entites import User, Review, Author, Story
-from utils import reshape
+from utils import reshape, with_db, update_sonfirm_status
 from config import Config
 
 
@@ -20,11 +20,6 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
-
-# TODO: move it to global singleton object?
-db = DB(Config.db())
-db.prepare()
-
 
 CONFIRM_POSITIVE = 'Да'
 CONFIRM_NEGATIVE = 'Нет'
@@ -56,10 +51,8 @@ ADD_AUTHOR = 'add_author'
 ADD_STORY = 'add_story'
 
 # ENTRY POINT ------------------------------------------------------------------
-async def start(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
-    db.add_user_if_new( user)
-
+@with_db
+async def start(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     text = '''Привет, {}!
 Я - бот для твоего читательского дневника.
 Здесь ты можешь отмечать всё, что прочитал, ставить оценки и всякое такое.
@@ -68,11 +61,12 @@ async def start(update: Update, context: CallbackContext.DEFAULT_TYPE):
     await update.message.reply_text(text)
 # ------------------------------------------------------------------------------
 
+
 # ADD AUTHOR -------------------------------------------------------------------
 ADD_AUTHOR_CONFIRM = range(1)
 
-async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     user_data = context.user_data
 
     author_name = ' '.join(context.args)
@@ -100,7 +94,8 @@ async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
         await update.message.reply_text(f'Добавить автора: `/add_author AUTHOR_NAME`')
         return ConversationHandler.END
 
-async def add_author_name_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
+@with_db
+async def add_author_name_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -108,17 +103,18 @@ async def add_author_name_callback(update: Update, context: CallbackContext.DEFA
     author: Author = context.user_data[unique_id]['author']
     if answer == CONFIRM_POSITIVE:
         db.add_author(author)
-        msg = 'добавлен'
+        status_msg = 'добавлен'
     else:
-        msg = 'добавление отменено'
+        status_msg = 'добавление отменено'
+    await update_sonfirm_status(query, status_msg)
+
     del context.user_data[unique_id]['author']
-    await query.edit_message_text(text="{}\nСтатус автора: {}".format(query.message.text, msg))
     return ConversationHandler.END
 # ------------------------------------------------------------------------------
 
 # LIST AUTHORS -----------------------------------------------------------------
-async def list_authors(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def list_authors(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     authors = db.list_authors(user)
     text = 'Твой список авторов:\n\n{}'.format('\n'.join(author.name for author in authors))
     await update.message.reply_text(text)
@@ -127,8 +123,8 @@ async def list_authors(update: Update, context: CallbackContext.DEFAULT_TYPE):
 # REMOVE AUTHOR ----------------------------------------------------------------
 REMOVE_AUTHOR, REMOVE_AUTHOR_CONFIRM = range(2)
 
-async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     authors = db.list_authors(user)
     author_buttons = [
         InlineKeyboardButton(author.name, callback_data=(author.id, author.name)) for author in authors
@@ -139,7 +135,8 @@ async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
     return REMOVE_AUTHOR
 
 # TODO: add cancel button to author buttons list
-async def remove_author_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
+@with_db
+async def remove_author_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -156,8 +153,8 @@ async def remove_author_callback(update: Update, context: CallbackContext.DEFAUL
     )
     return REMOVE_AUTHOR_CONFIRM
 
-async def remove_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def remove_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -168,7 +165,7 @@ async def remove_author_confirm_callback(update: Update, context: CallbackContex
     else:
         status_msg = 'удаление отменено'
 
-    await query.edit_message_text(text="Статус автора `{}`: {}".format(author_name, status_msg))
+    await update_sonfirm_status(query, status_msg)
     return ConversationHandler.END
 # ------------------------------------------------------------------------------
 
@@ -176,8 +173,8 @@ async def remove_author_confirm_callback(update: Update, context: CallbackContex
 # ADD STORY --------------------------------------------------------------------
 ADD_STORY_AUTHOR_CONFIRM, ADD_STORY_CONFIRM = range(2)
 
-async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     user_data = context.user_data
 
     # print('WTF')
@@ -206,7 +203,8 @@ async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE):
         await update.message.reply_text(f'Добавить произведение: `/add_story STORY_TITLE`')
         return ConversationHandler.END
 
-async def add_story_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
+@with_db
+async def add_story_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -226,7 +224,8 @@ async def add_story_author_confirm_callback(update: Update, context: CallbackCon
     )
     return ADD_STORY_CONFIRM
 
-async def add_story_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
+@with_db
+async def add_story_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -238,13 +237,13 @@ async def add_story_confirm_callback(update: Update, context: CallbackContext.DE
     else:
         status_msg = 'добавление отменено'
     del context.user_data[unique_key]['story']
-    await query.edit_message_text(text="{}\nСтатус произведения: {}".format(query.message.text, status_msg))
+    await update_sonfirm_status(query, status_msg)
     return ConversationHandler.END
 # ------------------------------------------------------------------------------
 
 # LIST STORIES -----------------------------------------------------------------
-async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     stories = db.list_stories(user)
     text = 'Твой список произведений:\n\n{}'.format('\n'.join(story.title for story in stories))
     await update.message.reply_text(text)
@@ -255,8 +254,8 @@ async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE):
 # TODO: Возможность выбрать автора перед удалением произведения
 REMOVE_STORY_CALLBACK, REMOVE_STORY_CONFIRM = range(2)
 
-async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     stories = db.list_stories(user)
     stories_buttons = [
         InlineKeyboardButton(story.title, callback_data=(story.id, story.title)) for story in stories
@@ -266,7 +265,8 @@ async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE):
     await update.message.reply_text('Какое произведение ты хочешь удалить?', reply_markup=stories_markup)
     return REMOVE_STORY_CALLBACK
 
-async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
+@with_db
+async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -283,8 +283,8 @@ async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT
     )
     return REMOVE_STORY_CONFIRM
 
-async def remove_story_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
+@with_db
+async def remove_story_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
     await query.answer()
 
@@ -295,82 +295,13 @@ async def remove_story_confirm_callback(update: Update, context: CallbackContext
     else:
         status_msg = 'удаление отменено'
 
-    await query.edit_message_text(text="Статус произведения `{}`: {}".format(story_title, status_msg))
+    await update_sonfirm_status(query, status_msg)
     return ConversationHandler.END
 # ------------------------------------------------------------------------------
 
-"""
-async def add_review(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    await update.message.reply_text('Давай добавим новую рецензию! Как называется произведение?')
-    return TITLE
 
-async def add_review_title(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user = User(update.effective_user)
-    user_data = context.user_data
-    user_data.clear()
-    review = Review(user)
-    review.title = update.message.text
-    user_data['review'] = review
-    await update.message.reply_text('Кто автор "{}"?'.format(review.title))
-    return AUTHOR
-
-async def add_review_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user_data = context.user_data
-    # what if 'review' not in user_data?
-    review: Review = user_data['review']
-    review.author = update.message.text
-    await update.message.reply_text(
-        'Aвтор - "{}". Отлично! Какие впечатления у тебя от этого произведения?'.format(review.author)
-    )
-    return REVIEW
-
-async def add_review_text(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user_data = context.user_data
-    # what if 'review' not in user_data?
-    review: Review = user_data['review']
-    review.text = update.message.text
-    await update.message.reply_text(
-        'Твоя рецензия: "{}". Какую оценку поставишь?'.format(review.text),
-        reply_markup=rank_markup
-    )
-    # return RANK
-
-async def add_review_rank_callback(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    print(query.message)
-    await query.edit_message_text(text="{}\nТвоя оценка: {query.data}".format(query.message.text, query.data))
-    return RANK
-
-async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    user_data = context.user_data
-    # what if 'review' not in user_data?
-    review: Review = user_data['review']
-    review.rank = int(update.message.text)
-    text = f'''Давай проверим, всё ли верно:
-Произведение: "{review.title}"
-Автор: "{review.author}"
-Рецензия: "{review.text}"
-Оценка: {review.rank}
-    '''
-    await update.message.reply_text(text, reply_markup=confirm_markup)
-    return CONFIRM
-
-async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TYPE):
-    review: Review = context.user_data['review']
-    if update.message.text == 'Сохранить':
-        db.save_review(review)
-        text = 'Рецензия сохранена!'
-    else:
-        context.user_data.clear()
-        text = 'Добавление рецензии отменено'
-    await update.message.reply_text(
-        text, reply_markup=ReplyKeyboardRemove()
-    )
-    return ConversationHandler.END
-"""
-
-async def cancel(update: Update, context: CallbackContext.DEFAULT_TYPE):
+@with_db
+async def cancel(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     await update.message.reply_text(
         "Ну и ладно, в другой раз тогда"
     )
@@ -378,6 +309,9 @@ async def cancel(update: Update, context: CallbackContext.DEFAULT_TYPE):
 
 
 if __name__ == '__main__':
+    # Prepare database
+    Config.db().prepare()
+
     application = ApplicationBuilder().token(Config.token()).arbitrary_callback_data(True).build()
 
     start_handler = CommandHandler('start', start)
@@ -425,19 +359,5 @@ if __name__ == '__main__':
         fallbacks=[CommandHandler("cancel", cancel)],
     )
     application.add_handler(remove_story_handler)
-
-    # conv_handler = ConversationHandler(
-    #     entry_points=[CommandHandler("add_review", add_review)],
-    #     states={
-    #         TITLE: [MessageHandler(filters.TEXT, add_review_title)],
-    #         AUTHOR: [MessageHandler(filters.TEXT, add_review_author)],
-    #         REVIEW: [MessageHandler(filters.TEXT, add_review_text)],
-    #         RANK: [MessageHandler(filters.TEXT, add_review_rank)],
-    #         CONFIRM: [MessageHandler(filters.TEXT, add_review_confirm)]
-    #     },
-    #     fallbacks=[CommandHandler("cancel", cancel)],
-    # )
-    # application.add_handler(conv_handler)
-    # application.add_handler(CallbackQueryHandler(add_review_rank_callback))
 
     application.run_polling()

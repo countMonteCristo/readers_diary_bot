@@ -1,3 +1,12 @@
+from db import DB
+from entites import User
+from config import Config
+
+from functools import wraps
+
+from telegram import CallbackQuery
+
+
 def reshape(array1d, nrows, ncols):
     '''
     reshape([1,2,3,4,5,6], 2, 3) -> [[1,2,3], [4,5,6]]
@@ -16,6 +25,24 @@ def reshape(array1d, nrows, ncols):
             break
 
     return result
+
+
+def with_db(callable):
+    '''Добавляем объекты БД и пользователя к обработчику и при необходимости регистрируем пользователя'''
+    db = Config.db()
+
+    @wraps(callable)
+    async def f(update, context):
+        user = User(update.effective_user)
+        db.add_user_if_new(user)
+        return await callable(update, context, db, user)
+
+    return f
+
+
+async def update_sonfirm_status(query: CallbackQuery, status_msg: str):
+    '''Обновляем статус операции в сообщении'''
+    await query.edit_message_text(text="{}\n\nСтатус операции: {}".format(query.message.text, status_msg))
 
 
 if __name__ == '__main__':

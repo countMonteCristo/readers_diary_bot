@@ -5,13 +5,10 @@ from entites import Author, User, Review, Story
 
 class DB:
     def __init__(self, sqlite_fn):
-        self.fn = sqlite_fn
+        self.conn = sqlite3.connect(sqlite_fn)
 
-    def connect(self):
-        return sqlite3.connect(self.fn)
-
-    def prepare(self, conn):
-        cursor = conn.cursor()
+    def prepare(self):
+        cursor = self.conn.cursor()
         cursor.execute(
             '''
             CREATE TABLE IF NOT EXISTS user
@@ -84,10 +81,10 @@ class DB:
             '''
         )
 
-        conn.commit()
+        self.conn.commit()
 
-    def add_user_if_new(self, conn, user: User):
-        cursor = conn.cursor()
+    def add_user_if_new(self, user: User):
+        cursor = self.conn.cursor()
         users = cursor.execute(
             '''SELECT * FROM user WHERE user.id == ?''', (user.id,)
         ).fetchall()
@@ -95,13 +92,13 @@ class DB:
             cursor.execute(
                 '''INSERT INTO user VALUES (?)''', (user.id,)
             )
-            conn.commit()
+            self.conn.commit()
             print('Add new user:', user.username)
         else:
             print('User with id={} already in db'.format(user.id))
 
-    def save_review(self, conn, review: Review):
-        cursor = conn.cursor()
+    def save_review(self, review: Review):
+        cursor = self.conn.cursor()
         # 1. Ищем автора по имени
         author_id = None
         authors = cursor.execute(
@@ -115,7 +112,7 @@ class DB:
                 (review.user_id, review.author)
             )
             author_id = cursor.lastrowid
-            conn.commit()
+            self.conn.commit()
             pass
         else:
             author_id = authors[0][0]
@@ -133,7 +130,7 @@ class DB:
                 (review.user_id, review.title, author_id)
             )
             story_id = cursor.lastrowid
-            conn.commit()
+            self.conn.commit()
             pass
         else:
             story_id = stories[0][0]
@@ -155,19 +152,19 @@ class DB:
                 '''UPDATE review SET text = ?, rank = ? WHERE user_id == ? AND story_id == ? LIMIT 1''',
                 (review.text, review.rank, review.user_id, story_id)
             )
-        conn.commit()
+        self.conn.commit()
 
 
-    def add_author(self, conn, author: Author):
-        cursor = conn.cursor()
+    def add_author(self, author: Author):
+        cursor = self.conn.cursor()
         cursor.execute(
             '''INSERT INTO author (user_id, name) VALUES (?, ?)''',
             (author.user_id, author.name)
         )
-        conn.commit()
+        self.conn.commit()
 
-    def author_id(self, conn, user: User, author_name: str):
-        cursor = conn.cursor()
+    def author_id(self, user: User, author_name: str):
+        cursor = self.conn.cursor()
         authors = cursor.execute(
             '''SELECT id FROM author WHERE user_id == ? AND name == ?''',
             (user.id, author_name)
@@ -177,46 +174,46 @@ class DB:
             sys.exit(1)
         return -1 if not authors else authors[0]
 
-    def list_authors(self, conn, user: User):
-        cursor = conn.cursor()
+    def list_authors(self, user: User):
+        cursor = self.conn.cursor()
         authors = cursor.execute(
             '''SELECT id, name FROM author WHERE user_id == ?''',
             (user.id,)
         ).fetchall()
         return [Author(user, name=row[1], id_=row[0]) for row in authors]
 
-    def remove_author(self, conn, user: User, author_id: int):
-        cursor = conn.cursor()
+    def remove_author(self, user: User, author_id: int):
+        cursor = self.conn.cursor()
         cursor.execute(
             '''DELETE FROM author WHERE user_id == ? AND id == ?''',
             (user.id, author_id)
         )
-        conn.commit()
+        self.conn.commit()
 
 
-    def add_story(self, conn, story: Story):
-        cursor = conn.cursor()
+    def add_story(self, story: Story):
+        cursor = self.conn.cursor()
         cursor.execute(
             '''INSERT INTO story (user_id, title, author_id) VALUES (?, ?, ?)''',
             (story.user_id, story.title, story.author_id)
         )
-        conn.commit()
+        self.conn.commit()
 
-    def list_stories(self, conn, user: User):
-        cursor = conn.cursor()
+    def list_stories(self, user: User):
+        cursor = self.conn.cursor()
         authors = cursor.execute(
             '''SELECT title, id FROM story WHERE user_id == ?''',
             (user.id,)
         ).fetchall()
         return [Story(user, title=row[0], id_=row[1]) for row in authors]
 
-    def remove_story(self, conn, user: User, story_id: int):
-        cursor = conn.cursor()
+    def remove_story(self, user: User, story_id: int):
+        cursor = self.conn.cursor()
         cursor.execute(
             '''DELETE FROM story WHERE user_id == ? AND id == ?''',
             (user.id, story_id)
         )
-        conn.commit()
+        self.conn.commit()
 
 
 if __name__ == '__main__':
@@ -224,7 +221,7 @@ if __name__ == '__main__':
     conn = db.connect()
     db.prepare(conn)
 
-    cursor = conn.cursor()
+    cursor = self.conn.cursor()
     cursor.execute(
         '''
         INSERT INTO user VALUES (7155816)
@@ -233,4 +230,4 @@ if __name__ == '__main__':
 
     for row in cursor.execute('SELECT * from user'):
         print(row)
-    conn.close()
+    self.conn.close()

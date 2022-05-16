@@ -23,8 +23,7 @@ logging.basicConfig(
 
 # TODO: move it to global singleton object?
 db = DB(Config.db())
-conn = db.connect()
-db.prepare(conn)
+db.prepare()
 
 
 CONFIRM_POSITIVE = 'Да'
@@ -59,7 +58,7 @@ ADD_STORY = 'add_story'
 # ENTRY POINT ------------------------------------------------------------------
 async def start(update: Update, context: CallbackContext.DEFAULT_TYPE):
     user = User(update.effective_user)
-    db.add_user_if_new(conn, user)
+    db.add_user_if_new( user)
 
     text = '''Привет, {}!
 Я - бот для твоего читательского дневника.
@@ -78,7 +77,7 @@ async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
 
     author_name = ' '.join(context.args)
     if author_name:
-        author_id = db.author_id(conn, user, author_name)
+        author_id = db.author_id(user, author_name)
         if author_id != -1:
             await update.message.reply_text(f'Такой автор уже есть в базе')
             return ConversationHandler.END
@@ -108,7 +107,7 @@ async def add_author_name_callback(update: Update, context: CallbackContext.DEFA
     answer, unique_id, _ = query.data
     author: Author = context.user_data[unique_id]['author']
     if answer == CONFIRM_POSITIVE:
-        db.add_author(conn, author)
+        db.add_author(author)
         msg = 'добавлен'
     else:
         msg = 'добавление отменено'
@@ -120,7 +119,7 @@ async def add_author_name_callback(update: Update, context: CallbackContext.DEFA
 # LIST AUTHORS -----------------------------------------------------------------
 async def list_authors(update: Update, context: CallbackContext.DEFAULT_TYPE):
     user = User(update.effective_user)
-    authors = db.list_authors(conn, user)
+    authors = db.list_authors(user)
     text = 'Твой список авторов:\n\n{}'.format('\n'.join(author.name for author in authors))
     await update.message.reply_text(text)
 # ------------------------------------------------------------------------------
@@ -130,7 +129,7 @@ REMOVE_AUTHOR, REMOVE_AUTHOR_CONFIRM = range(2)
 
 async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE):
     user = User(update.effective_user)
-    authors = db.list_authors(conn, user)
+    authors = db.list_authors(user)
     author_buttons = [
         InlineKeyboardButton(author.name, callback_data=(author.id, author.name)) for author in authors
     ]
@@ -164,7 +163,7 @@ async def remove_author_confirm_callback(update: Update, context: CallbackContex
 
     answer, author_id, author_name = query.data
     if answer == CONFIRM_POSITIVE:
-        db.remove_author(conn, user, author_id)
+        db.remove_author(user, author_id)
         status_msg = 'удалён'
     else:
         status_msg = 'удаление отменено'
@@ -192,7 +191,7 @@ async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE):
         user_data[unique_key] = {
             'story': story
         }
-        authors = db.list_authors(conn, user)
+        authors = db.list_authors(user)
         author_buttons = [
             InlineKeyboardButton(author.name, callback_data=(unique_key, author.id, author.name, story.title)) for author in authors
         ]
@@ -234,7 +233,7 @@ async def add_story_confirm_callback(update: Update, context: CallbackContext.DE
     answer, unique_key, _ = query.data
     story: Story = context.user_data[unique_key]['story']
     if answer == CONFIRM_POSITIVE:
-        db.add_story(conn, story)
+        db.add_story(story)
         status_msg = 'добавлено'
     else:
         status_msg = 'добавление отменено'
@@ -246,7 +245,7 @@ async def add_story_confirm_callback(update: Update, context: CallbackContext.DE
 # LIST STORIES -----------------------------------------------------------------
 async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE):
     user = User(update.effective_user)
-    stories = db.list_stories(conn, user)
+    stories = db.list_stories(user)
     text = 'Твой список произведений:\n\n{}'.format('\n'.join(story.title for story in stories))
     await update.message.reply_text(text)
 # ------------------------------------------------------------------------------
@@ -258,7 +257,7 @@ REMOVE_STORY_CALLBACK, REMOVE_STORY_CONFIRM = range(2)
 
 async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE):
     user = User(update.effective_user)
-    stories = db.list_stories(conn, user)
+    stories = db.list_stories(user)
     stories_buttons = [
         InlineKeyboardButton(story.title, callback_data=(story.id, story.title)) for story in stories
     ]
@@ -291,7 +290,7 @@ async def remove_story_confirm_callback(update: Update, context: CallbackContext
 
     answer, story_id, story_title = query.data
     if answer == CONFIRM_POSITIVE:
-        db.remove_story(conn, user, story_id)
+        db.remove_story(user, story_id)
         status_msg = 'удалено'
     else:
         status_msg = 'удаление отменено'
@@ -360,7 +359,7 @@ async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE)
 async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TYPE):
     review: Review = context.user_data['review']
     if update.message.text == 'Сохранить':
-        db.save_review(conn, review)
+        db.save_review(review)
         text = 'Рецензия сохранена!'
     else:
         context.user_data.clear()

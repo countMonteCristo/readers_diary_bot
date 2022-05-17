@@ -1,7 +1,7 @@
 from db import DB
-from utils import with_db, reshape, confirm_pattern, update_confirm_status
+from utils import with_db, reshape, update_confirm_status
 from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
-from entites import User, Review
+from entites import User, Review, Author, Story
 
 from .common import get_cancel_handler
 
@@ -26,19 +26,14 @@ ADD_REVIEW_STORY, ADD_REVIEW_RANK, ADD_REVIEW_CONFIRM, ADD_REVIEW_CONFIRM_CALLBA
 
 @with_db
 async def add_review(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    user_data = context.user_data
-
     review_text = ' '.join(context.args)
     if review_text:
         review = Review(user, text=review_text)
-        unique_key = update.effective_message.message_id
-        user_data[unique_key] = {
-            'review': review
-        }
+
         authors = db.list_authors(user)
         author_buttons = [
             InlineKeyboardButton(
-                author.name, callback_data=(unique_key, author.id, author.name)
+                author.name, callback_data=(author, review)
             ) for author in authors
         ]
         authors_keyboard = reshape(author_buttons, len(authors) // 2 + len(authors) % 2, 2)
@@ -57,22 +52,24 @@ async def add_review_story_callback(update: Update, context: CallbackContext.DEF
     query = update.callback_query
     await query.answer()
 
-    unique_key, author_id, author_name = query.data
-    review: Review = context.user_data[unique_key]['review']
-    review.author_name = author_name
-    review.author_id = author_id
+    author: Author
+    review: Review
+    author, review = query.data
 
-    stories = db.list_stories(user, author_id=author_id)
+    review.author_name = author.name
+    review.author_id = author.id
+
+    stories = db.list_stories(user, author_id=author.id)
     story_buttons = [
         InlineKeyboardButton(
-            story.title, callback_data=(unique_key, story.id, story.title)
+            story.title, callback_data=(review, story)
         ) for story in stories
     ]
     stories_keyboard = reshape(story_buttons, len(stories) // 2 + len(stories) % 2, 2)
     stories_markup = InlineKeyboardMarkup(stories_keyboard)
 
     await query.edit_message_text(
-        text=f"Выбери произведение автора `{author_name}`",
+        text=f"Выбери произведение автора `{author.name}`",
         reply_markup=stories_markup,
     )
     return ADD_REVIEW_RANK
@@ -83,12 +80,14 @@ async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE,
     query = update.callback_query
     await query.answer()
 
-    unique_key, story_id, story_title = query.data
-    review: Review = context.user_data[unique_key]['review']
-    review.story_id = story_id
-    review.story_title = story_title
+    review: Review
+    story: Story
+    review, story = query.data
 
-    rank_buttons = [InlineKeyboardButton(str(rank), callback_data=(unique_key, rank)) for rank in range(6)]
+    review.story_id = story.id
+    review.story_title = story.title
+
+    rank_buttons = [InlineKeyboardButton(str(rank), callback_data=(review, rank)) for rank in range(6)]
     rank_keyborad = reshape(rank_buttons, 2, 3)
     rank_markup = InlineKeyboardMarkup(rank_keyborad)
 
@@ -104,12 +103,13 @@ async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TY
     query = update.callback_query
     await query.answer()
 
-    unique_key, rank = query.data
-    review: Review = context.user_data[unique_key]['review']
+    review: Review
+    rank: int
+    review, rank = query.data
     review.rank = rank
 
     confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, unique_key, ADD_REVIEW)) for answer in CONFIRM_ANSWERS]
+        [InlineKeyboardButton(answer, callback_data=(answer, review)) for answer in CONFIRM_ANSWERS]
     ]
     confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
 
@@ -125,14 +125,16 @@ async def add_review_confirm_callback(update: Update, context: CallbackContext.D
     query = update.callback_query
     await query.answer()
 
-    answer, unique_key, _ = query.data
-    review: Review = context.user_data[unique_key]['review']
+    answer: str
+    review: Review
+    answer, review = query.data
+
     if answer == CONFIRM_POSITIVE:
         db.add_review(review)
         status_msg = 'добавлен'
     else:
         status_msg = 'добавление отменено'
-    del context.user_data[unique_key]['review']
+
     await update_confirm_status(query, status_msg)
     return ConversationHandler.END
 # ----------------------------------------------------------------------------------------------------------------------
@@ -272,7 +274,7 @@ def get_review_handlers():
             ADD_REVIEW_RANK: [CallbackQueryHandler(add_review_rank)],
             ADD_REVIEW_CONFIRM: [CallbackQueryHandler(add_review_confirm)],
             ADD_REVIEW_CONFIRM_CALLBACK: [
-                CallbackQueryHandler(add_review_confirm_callback, pattern=confirm_pattern(ADD_REVIEW))
+                CallbackQueryHandler(add_review_confirm_callback)
             ],
         },
         fallbacks=[cancel_handler],

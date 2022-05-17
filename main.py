@@ -16,10 +16,6 @@ from utils import with_db
 from config import Config
 
 
-# Confirm pattern labels
-ADD_AUTHOR = 'add_author'
-ADD_STORY = 'add_story'
-
 # ENTRY POINT ------------------------------------------------------------------
 @with_db
 async def start(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):

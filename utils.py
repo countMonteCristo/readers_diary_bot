@@ -46,17 +46,6 @@ async def update_confirm_status(query: CallbackQuery, status_msg: str):
     await query.edit_message_text(text="{}\n\nСтатус операции: {}".format(query.message.text, status_msg))
 
 
-def confirm_pattern(label: str):
-    def callable_pattern(data: CallbackQuery.data):
-        if isinstance(data, Iterable):
-            # if callback data is iterable, it should be in form of
-            # answer, {useful_data...}, label
-            return data[0] in CONFIRM_ANSWERS and data[-1] == label
-        else:
-            return data in CONFIRM_ANSWERS
-    return callable_pattern
-
-
 if __name__ == '__main__':
     assert reshape([1, 2, 3, 4, 5, 6], 2, 3) == [[1, 2, 3], [4, 5, 6]]
     assert reshape([1, 2, 3, 4, 5, 6], 3, 2) == [[1, 2], [3, 4], [5, 6]]

@@ -1,4 +1,4 @@
-from utils import with_db, reshape, confirm_pattern
+from utils import with_db, reshape
 from db import DB
 from entites import User, Author
 from .common import get_cancel_handler
@@ -20,12 +20,11 @@ REMOVE_AUTHOR = 'remove_author'
 
 
 # ADD AUTHOR -----------------------------------------------------------------------------------------------------------
-ADD_AUTHOR_CONFIRM = range(1)
+ADD_AUTHOR_CONFIRM = 0
 
 
 @with_db
 async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    user_data = context.user_data
 
     author_name = ' '.join(context.args)
     if author_name:
@@ -34,19 +33,12 @@ async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: 
             await update.message.reply_text(f'Такой автор уже есть в базе')
             return ConversationHandler.END
         else:
-            author: Author = Author(user, name=author_name)
-            unique_key = update.effective_message.message_id
-            user_data[unique_key] = {
-                'author': author
-            }
+            author = Author(user, name=author_name)
             confirm_reply_keyboard = [
-                [InlineKeyboardButton(text, callback_data=(text, unique_key, ADD_AUTHOR),) for text in CONFIRM_ANSWERS]
+                [InlineKeyboardButton(text, callback_data=(text, author)) for text in CONFIRM_ANSWERS]
             ]
             confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
-            await update.message.reply_text(
-                'Добавить автора "{}"?'.format(author.name),
-                reply_markup=confirm_markup,
-            )
+            await update.message.reply_text('Добавить автора "{}"?'.format(author.name), reply_markup=confirm_markup)
             return ADD_AUTHOR_CONFIRM
     else:
         await update.message.reply_text(f'Добавить автора: `/add_author AUTHOR_NAME`')
@@ -58,8 +50,8 @@ async def add_author_name_callback(update: Update, context: CallbackContext.DEFA
     query = update.callback_query
     await query.answer()
 
-    answer, unique_id, _ = query.data
-    author: Author = context.user_data[unique_id]['author']
+    answer, author = query.data
+
     if answer == CONFIRM_POSITIVE:
         db.add_author(author)
         status_msg = 'добавлен'
@@ -67,7 +59,6 @@ async def add_author_name_callback(update: Update, context: CallbackContext.DEFA
         status_msg = 'добавление отменено'
     await update_confirm_status(query, status_msg)
 
-    del context.user_data[unique_id]['author']
     return ConversationHandler.END
 # ----------------------------------------------------------------------------------------------------------------------
 
@@ -88,7 +79,7 @@ REMOVE_AUTHOR_ACTION, REMOVE_AUTHOR_CONFIRM = range(2)
 async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     authors = db.list_authors(user)
     author_buttons = [
-        InlineKeyboardButton(author.name, callback_data=(author.id, author.name)) for author in authors
+        InlineKeyboardButton(author.name, callback_data=author) for author in authors
     ]
     authors_keyboard = reshape(author_buttons, len(authors) // 2 + len(authors) % 2, 2)
     authors_markup = InlineKeyboardMarkup(authors_keyboard)
@@ -101,17 +92,15 @@ async def remove_author_callback(update: Update, context: CallbackContext.DEFAUL
     query = update.callback_query
     await query.answer()
 
-    author_id, author_name = query.data
+    author: Author = query.data
 
     confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, author_id, author_name)) for answer in CONFIRM_ANSWERS]
+        [InlineKeyboardButton(answer, callback_data=(answer, author)) for answer in CONFIRM_ANSWERS]
     ]
     confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
 
-    text = f"Удалить автора `{author_name}`? Вместе с ним удалятся все его произведения, а также все твои записи о них"
-    await query.edit_message_text(
-        text=text, reply_markup=confirm_markup,
-    )
+    text = f"Удалить автора `{author.name}`? Вместе с ним удалятся все его произведения, а также все твои записи о них"
+    await query.edit_message_text(text=text, reply_markup=confirm_markup)
     return REMOVE_AUTHOR_CONFIRM
 
 
@@ -120,9 +109,11 @@ async def remove_author_confirm_callback(update: Update, context: CallbackContex
     query = update.callback_query
     await query.answer()
 
-    answer, author_id, author_name = query.data
+    answer: str
+    author: Author
+    answer, author = query.data
     if answer == CONFIRM_POSITIVE:
-        db.remove_author(user, author_id)
+        db.remove_author(user, author.id)
         status_msg = 'удалён'
     else:
         status_msg = 'удаление отменено'
@@ -138,7 +129,7 @@ def get_author_handlers():
     add_author_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_AUTHOR, add_author, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
-            ADD_AUTHOR_CONFIRM: [CallbackQueryHandler(add_author_name_callback, pattern=confirm_pattern(ADD_AUTHOR))],
+            ADD_AUTHOR_CONFIRM: [CallbackQueryHandler(add_author_name_callback)],
         },
         fallbacks=[cancel_handler],
     )

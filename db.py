@@ -6,8 +6,10 @@ from entites import Author, User, Review, Story
 
 
 class DB:
-    def __init__(self, sqlite_fn):
+    def __init__(self, sqlite_fn, debug=False):
         self.conn = sqlite3.connect(sqlite_fn)
+        if debug:
+            self.conn.set_trace_callback(logging.info)
 
     def __del__(self):
         self.conn.close()
@@ -274,6 +276,32 @@ class DB:
             Review(user, text=row[0], id_=row[1], story_title=row[2], author_name=row[3], rank=row[4])
             for row in reviews
         ]
+
+    def list_story_reviews(self, user: User, story_id: int):
+        cursor = self.conn.cursor()
+        reviews = cursor.execute(
+            '''
+                SELECT review.text, review.id, story.title, author.name, review.rank
+                FROM review
+                JOIN story ON (review.user_id == story.user_id) AND (review.story_id == story.id)
+                JOIN author ON (review.user_id == author.user_id) AND (story.author_id == author.id)
+                WHERE review.user_id == ? AND story.id == ?
+                ORDER BY author.name, story.title, review.text
+            ''',
+            (user.id, story_id)
+        ).fetchall()
+        return [
+            Review(user, text=row[0], id_=row[1], story_title=row[2], author_name=row[3], rank=row[4])
+            for row in reviews
+        ]
+
+    def remove_review(self, user: User, review_id: int):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            '''DELETE FROM review WHERE user_id == ? AND id == ?''',
+            (user.id, review_id)
+        )
+        self.conn.commit()
 
 
 if __name__ == '__main__':

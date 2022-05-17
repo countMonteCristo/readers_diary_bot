@@ -175,7 +175,7 @@ def get_story_handlers():
     list_stories_handler = CommandHandler(LIST_STORIES, list_stories, filters=~filters.UpdateType.EDITED_MESSAGE)
 
     remove_story_handler = ConversationHandler(
-        entry_points=[CommandHandler("remove_story", remove_story, filters=~filters.UpdateType.EDITED_MESSAGE)],
+        entry_points=[CommandHandler(REMOVE_STORY, remove_story, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
             REMOVE_STORY_CALLBACK: [CallbackQueryHandler(remove_story_callback)],
             REMOVE_STORY_CONFIRM: [CallbackQueryHandler(remove_story_confirm_callback)],

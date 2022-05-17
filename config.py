@@ -4,7 +4,7 @@ from db import DB
 
 
 class Config:
-    _db = DB(os.environ['BOT_DB'])
+    _db = DB(os.environ['BOT_DB'], debug=os.environ.get('BOT_DEBUG_SQL'))
 
     @staticmethod
     def token():

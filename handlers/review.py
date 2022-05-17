@@ -1,6 +1,8 @@
-from utils import with_db, reshape, confirm_pattern
 from db import DB
+from utils import with_db, reshape, confirm_pattern, update_confirm_status
+from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
 from entites import User, Review
+
 from .common import get_cancel_handler
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,8 +12,7 @@ from telegram.ext import (
     filters
 )
 
-from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
-from utils import update_confirm_status
+from itertools import groupby
 
 
 ADD_REVIEW = 'add_review'
@@ -140,9 +141,21 @@ async def add_review_confirm_callback(update: Update, context: CallbackContext.D
 # LIST REVIEWS ---------------------------------------------------------------------------------------------------------
 @with_db
 async def list_reviews(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    # TODO: group reviews by author and story
-    reviews = db.list_reviews(user)
-    text = 'Твой список отзывов:\n\n{}'.format('\n\n'.join(review.text for review in reviews))
+    # TODO: add formatter functions for list_* commands
+    author_sep = '-' * 50
+    reviews_plain = db.list_reviews(user)
+    reviews_list = []
+    for author_key, author_reviews in groupby(reviews_plain, key=lambda r: r.author_name):
+        author_review_list = []
+        for story_key, author_story_reviews_group in groupby(author_reviews, key=lambda r: r.story_title):
+            rec = '  "{}":\n{}'.format(
+                story_key, '\n'.join('    - [{}] {}'.format(r.rank, r.text) for r in author_story_reviews_group)
+            )
+            author_review_list.append(rec)
+        author_rec = '{}:\n{}\n'.format(author_key, ' \n\n'.join(author_review_list))
+        reviews_list.append(author_rec)
+
+    text = 'Твой список отзывов:\n\n{}'.format(f'{author_sep}\n'.join(reviews_list))
     await update.message.reply_text(text)
 # ----------------------------------------------------------------------------------------------------------------------
 

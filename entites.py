@@ -25,11 +25,19 @@ class Story:
 
 
 class Review:
-    def __init__(self, user: User, text: str, id_: int = -1):
+    def __init__(
+        self, user: User, text: str, id_: int = -1, author_name: str = '', story_title: str = '', rank: int = -1,
+    ):
         self.user_id = user.id
         self.text = text
-        self.rank = None
-        self.author_name = None
+        self.rank = rank
+        self.author_name = author_name
         self.author_id = None
-        self.story_title = None
+        self.story_title = story_title
         self.id = id_
+
+    def __str__(self):
+        return f'Review(title="{self.story_title}",text="{self.text}",author="{self.author_name}")'
+
+    def __repr__(self):
+        return str(self)

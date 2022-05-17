@@ -211,7 +211,7 @@ class DB:
                     FROM story
                     JOIN author ON (story.user_id == author.user_id) AND (story.author_id == author.id)
                     WHERE story.user_id == ?
-                    ORDER BY story.author_id, story.title
+                    ORDER BY author.name, story.title
                 ''',
                 (user.id,)
             ).fetchall()
@@ -248,17 +248,32 @@ class DB:
         cursor = self.conn.cursor()
         if author_id == -1:
             reviews = cursor.execute(
-                '''SELECT text, id FROM review WHERE user_id == ?''',
+                '''
+                    SELECT review.text, review.id, story.title, author.name, review.rank
+                    FROM review
+                    JOIN story ON (review.user_id == story.user_id) AND (review.story_id == story.id)
+                    JOIN author ON (review.user_id == author.user_id) AND (story.author_id == author.id)
+                    WHERE review.user_id == ?
+                    ORDER BY author.name, story.title, review.text
+                ''',
                 (user.id,)
             ).fetchall()
         else:
             reviews = cursor.execute(
-                '''SELECT review.text, review.id FROM review
-                JOIN story ON (review.user_id == story.user_id) AND (review.story_id == story.id)
-                WHERE review.user_id == ? AND story.author_id == ?''',
+                '''
+                    SELECT review.text, review.id, story.title, author.name, review.rank
+                    FROM review
+                    JOIN story ON (review.user_id == story.user_id) AND (review.story_id == story.id)
+                    JOIN author ON (review.user_id == author.user_id) AND (story.author_id == author.id)
+                    WHERE review.user_id == ? AND story.author_id == ?
+                    ORDER BY author.name, story.title, review.text
+                ''',
                 (user.id, author_id)
             ).fetchall()
-        return [Review(user, text=row[0], id_=row[1]) for row in reviews]
+        return [
+            Review(user, text=row[0], id_=row[1], story_title=row[2], author_name=row[3], rank=row[4])
+            for row in reviews
+        ]
 
 
 if __name__ == '__main__':

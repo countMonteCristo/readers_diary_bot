@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 from consts import CONFIRM_POSITIVE
-from db import DB
+from db import DB, INVALID_ID
 from entities import Author, Story, User
 from formatters import format_stories
 from keyboards import authors_inline_keyboard, stories_inline_keyboard, confirm_inline_keyboard
@@ -45,7 +45,6 @@ async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: D
     return ADD_STORY_AUTHOR_CONFIRM
 
 
-# TODO: check uniqueness of the story title for specified author
 @with_db
 async def add_story_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
@@ -64,6 +63,12 @@ async def add_story_author_confirm_callback(update: Update, context: CallbackCon
     author, story = query.data      # type: ignore
     story.author_name = author.name
     story.author_id = author.id
+
+    if db.story_id(user, story, author) != INVALID_ID:
+        await query.edit_message_text(
+            text=f'Произведение `{story.title}` автора `{author.name}` уже есть в базе',
+        )
+        return ConversationHandler.END
 
     confirm_markup = confirm_inline_keyboard(optional_data=(story,))
 

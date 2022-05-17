@@ -1,8 +1,7 @@
 import logging
 import sqlite3
-import sys
 
-from entities import Author, Review, Story, User
+from entities import INVALID_ID, Author, Review, Story, User
 
 
 class DB:
@@ -119,9 +118,10 @@ class DB:
             (user.id, author_name)
         ).fetchall()
         if len(authors) > 1:
+            # TODO: emit some signal if that happens
             logging.critical(f'[{user.id=}] More than one unique author: `{author_name}`')
-            sys.exit(1)
-        return -1 if not authors else authors[0]
+            return authors[0]
+        return INVALID_ID if not authors else authors[0]
 
     def list_authors(self, user: User):
         cursor = self.conn.cursor()
@@ -147,9 +147,21 @@ class DB:
         )
         self.conn.commit()
 
-    def list_stories(self, user: User, author_id: int = -1):
+    def story_id(self, user: User, story: Story, author: Author):
         cursor = self.conn.cursor()
-        if author_id == -1:
+        stories = cursor.execute(
+            '''SELECT id FROM story WHERE user_id == ? AND author_id == ? AND title == ?''',
+            (user.id, author.id, story.title)
+        ).fetchall()
+        if len(stories) > 1:
+            # TODO: emit some signal if that happens
+            logging.critical(f'[{user.id=}] More than one unique story `{story.title}` for author `{author.name}`')
+            return stories[0]
+        return INVALID_ID if not stories else stories[0]
+
+    def list_stories(self, user: User, author_id: int = INVALID_ID):
+        cursor = self.conn.cursor()
+        if author_id == INVALID_ID:
             stories = cursor.execute(
                 '''
                     SELECT story.title, story.id, author.name
@@ -189,9 +201,9 @@ class DB:
         )
         self.conn.commit()
 
-    def list_reviews(self, user: User, author_id: int = -1):
+    def list_reviews(self, user: User, author_id: int = INVALID_ID):
         cursor = self.conn.cursor()
-        if author_id == -1:
+        if author_id == INVALID_ID:
             reviews = cursor.execute(
                 '''
                     SELECT review.text, review.id, story.title, author.name, review.rank

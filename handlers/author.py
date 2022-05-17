@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 from consts import CONFIRM_POSITIVE
-from db import DB
+from db import DB, INVALID_ID
 from entities import Author, User
 from formatters import format_authors
 from keyboards import authors_inline_keyboard, confirm_inline_keyboard
@@ -33,7 +33,7 @@ async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: 
 
     author_name = ' '.join(context.args)
     author_id = db.author_id(user, author_name)
-    if author_id != -1:
+    if author_id != INVALID_ID:
         await update.message.reply_text(f'Такой автор уже есть в базе')
         return ConversationHandler.END
     else:

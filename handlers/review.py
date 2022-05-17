@@ -1,8 +1,11 @@
 from itertools import groupby
 
-from consts import CONFIRM_ANSWERS, CONFIRM_POSITIVE
+from consts import CONFIRM_POSITIVE
 from db import DB
 from entites import Author, Review, Story, User
+from keyboards.author import authors_inline_keyboard
+from keyboards.story import stories_inline_keyboard
+from keyboards.confirm import confirm_inline_keyboard
 from utils import reshape, update_confirm_status, with_db
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
@@ -27,13 +30,10 @@ async def add_review(update: Update, context: CallbackContext.DEFAULT_TYPE, db: 
         review = Review(user, text=review_text)
 
         authors = db.list_authors(user)
-        author_buttons = [
-            InlineKeyboardButton(author.name, callback_data=(author, review)) for author in authors
-        ]
-        authors_keyboard = reshape(author_buttons, len(authors) // 2 + len(authors) % 2, 2)
-        authors_markup = InlineKeyboardMarkup(authors_keyboard)
+        author_markup = authors_inline_keyboard(authors, optional_data=(review,))
+
         await update.message.reply_text(
-            'Выбери автора', reply_markup=authors_markup,
+            'Выбери автора', reply_markup=author_markup,
         )
         return ADD_REVIEW_STORY
     else:
@@ -54,15 +54,11 @@ async def add_review_story_callback(update: Update, context: CallbackContext.DEF
     review.author_id = author.id
 
     stories = db.list_stories(user, author_id=author.id)
-    story_buttons = [
-        InlineKeyboardButton(story.title, callback_data=(review, story)) for story in stories
-    ]
-    stories_keyboard = reshape(story_buttons, len(stories) // 2 + len(stories) % 2, 2)
-    stories_markup = InlineKeyboardMarkup(stories_keyboard)
+    story_markup = stories_inline_keyboard(stories, optional_data=(review,))
 
     await query.edit_message_text(
         text=f"Выбери произведение автора `{author.name}`",
-        reply_markup=stories_markup,
+        reply_markup=story_markup,
     )
     return ADD_REVIEW_RANK
 
@@ -72,9 +68,9 @@ async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE,
     query = update.callback_query
     await query.answer()
 
-    review: Review
     story: Story
-    review, story = query.data
+    review: Review
+    story, review = query.data
 
     review.story_id = story.id
     review.story_title = story.title
@@ -100,10 +96,7 @@ async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TY
     review, rank = query.data
     review.rank = rank
 
-    confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, review)) for answer in CONFIRM_ANSWERS]
-    ]
-    confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
+    confirm_markup = confirm_inline_keyboard(optional_data=(review,))
 
     text = 'Добавить отзыв на произведение `{}` автора `{}` с оценкой `{}`?'.format(
         review.story_title, review.author_name, review.rank
@@ -161,12 +154,9 @@ REMOVE_REVIEW_GET_STORY, REMOVE_REVIEW_GET_REVIEW, REMOVE_REVIEW_CONFIRM, REMOVE
 @with_db
 async def remove_review(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     authors = db.list_authors(user)
-    author_buttons = [
-        InlineKeyboardButton(author.name, callback_data=author) for author in authors
-    ]
-    authors_keyboard = reshape(author_buttons, len(authors) // 2 + len(authors) % 2, 2)
-    authors_markup = InlineKeyboardMarkup(authors_keyboard)
-    await update.message.reply_text('Выбери автора', reply_markup=authors_markup)
+    author_markup = authors_inline_keyboard(authors)
+
+    await update.message.reply_text('Выбери автора', reply_markup=author_markup)
     return REMOVE_REVIEW_GET_STORY
 
 
@@ -175,18 +165,15 @@ async def remove_review_get_story(update: Update, context: CallbackContext.DEFAU
     query = update.callback_query
     await query.answer()
 
-    author: Author = query.data
+    author: Author
+    author, = query.data
 
     stories = db.list_stories(user, author.id)
-    stories_buttons = [
-        InlineKeyboardButton(story.title, callback_data=(author, story)) for story in stories
-    ]
-    stories_keyboard = reshape(stories_buttons, len(stories) // 2 + len(stories) % 2, 2)
-    stories_markup = InlineKeyboardMarkup(stories_keyboard)
+    story_markup = stories_inline_keyboard(stories, optional_data=(author,))
 
     await query.edit_message_text(
         text=f'Выбери произведение автора {author.name}',
-        reply_markup=stories_markup,
+        reply_markup=story_markup,
     )
     return REMOVE_REVIEW_GET_REVIEW
 
@@ -198,7 +185,7 @@ async def remove_review_get_review(update: Update, context: CallbackContext.DEFA
 
     author: Author
     story: Story
-    author, story = query.data
+    story, author = query.data
 
     reviews = db.list_story_reviews(user, story_id=story.id)
     reviews_buttons = [
@@ -224,10 +211,7 @@ async def remove_review_confirm(update: Update, context: CallbackContext.DEFAULT
     review: Review
     author, story, review = query.data
 
-    confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, review)) for answer in CONFIRM_ANSWERS]
-    ]
-    confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
+    confirm_markup = confirm_inline_keyboard(optional_data=(review,))
 
     await query.edit_message_text(
         text=f"Удалить отзыв на произведение `{story.title}` автора `{author.name}`?",

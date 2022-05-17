@@ -1,11 +1,14 @@
 from itertools import groupby
 
-from consts import CONFIRM_ANSWERS, CONFIRM_POSITIVE
+from consts import CONFIRM_POSITIVE
 from db import DB
 from entites import Author, Story, User
-from utils import reshape, update_confirm_status, with_db
+from keyboards.author import authors_inline_keyboard
+from keyboards.story import stories_inline_keyboard
+from keyboards.confirm import confirm_inline_keyboard
+from utils import update_confirm_status, with_db
 
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update
 from telegram.ext import (
     CallbackContext,
     CallbackQueryHandler, CommandHandler, ConversationHandler, filters
@@ -28,15 +31,12 @@ async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: D
         # Do not check the uniqueness of the story title, because
         # it is possible for different authors to have same-titled stories
         story = Story(user, title=story_title)
+
         authors = db.list_authors(user)
-        author_buttons = [
-            InlineKeyboardButton(author.name, callback_data=(story, author)) for author in authors
-        ]
-        authors_keyboard = reshape(author_buttons, len(authors) // 2 + len(authors) % 2, 2)
-        authors_markup = InlineKeyboardMarkup(authors_keyboard)
+        author_markup = authors_inline_keyboard(authors, optional_data=(story,))
         await update.message.reply_text(
             'Кто автор произведения `{}`?'.format(story.title),
-            reply_markup=authors_markup,
+            reply_markup=author_markup,
         )
         return ADD_STORY_AUTHOR_CONFIRM
     else:
@@ -44,6 +44,7 @@ async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: D
         return ConversationHandler.END
 
 
+# TODO: check uniqueness of the story title for specified author
 @with_db
 async def add_story_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
@@ -52,14 +53,11 @@ async def add_story_author_confirm_callback(update: Update, context: CallbackCon
     story: Story
     author: Author
 
-    story, author = query.data
+    author, story = query.data
     story.author_name = author.name
     story.author_id = author.id
 
-    confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, story)) for answer in CONFIRM_ANSWERS]
-    ]
-    confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
+    confirm_markup = confirm_inline_keyboard(optional_data=(story,))
 
     await query.edit_message_text(
         text=f"Добавить произведение `{story.title}` автора `{author.name}`?",
@@ -88,9 +86,9 @@ async def add_story_confirm_callback(update: Update, context: CallbackContext.DE
 # LIST STORIES ---------------------------------------------------------------------------------------------------------
 @with_db
 async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    stories = groupby(db.list_stories(user), key=lambda story: story.author_name)
+    stories = db.list_stories(user)
     stories_list = []
-    for key, author_stories in stories:
+    for key, author_stories in groupby(stories, key=lambda story: story.author_name):
         author_story_lits = '{}:\n{}'.format(key, '\n'.join('    {}'.format(story.title) for story in author_stories))
         stories_list.append(author_story_lits)
     text = 'Твой список произведений:\n\n{}'.format('\n\n'.join(stories_list))
@@ -106,12 +104,9 @@ REMOVE_STORY_CALLBACK, REMOVE_STORY_CONFIRM = range(2)
 @with_db
 async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     stories = db.list_stories(user)
-    stories_buttons = [
-        InlineKeyboardButton(story.title, callback_data=story) for story in stories
-    ]
-    stories_keyboard = reshape(stories_buttons, len(stories) // 2 + len(stories) % 2, 2)
-    stories_markup = InlineKeyboardMarkup(stories_keyboard)
-    await update.message.reply_text('Какое произведение ты хочешь удалить?', reply_markup=stories_markup)
+    story_markup = stories_inline_keyboard(stories)
+
+    await update.message.reply_text('Какое произведение ты хочешь удалить?', reply_markup=story_markup)
     return REMOVE_STORY_CALLBACK
 
 
@@ -120,12 +115,10 @@ async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT
     query = update.callback_query
     await query.answer()
 
-    story: Story = query.data
+    story: Story
+    story, = query.data
 
-    confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, story)) for answer in CONFIRM_ANSWERS]
-    ]
-    confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
+    confirm_markup = confirm_inline_keyboard(optional_data=(story,))
 
     await query.edit_message_text(
         text=f"Удалить произведение `{story.title}`? Вместе с ним удалится твоя запись о нём (если она есть)",

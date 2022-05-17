@@ -1,13 +1,15 @@
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
+from telegram import Update
 from telegram.ext import (
     CallbackContext,
     CallbackQueryHandler, CommandHandler, ConversationHandler, filters
 )
 
-from consts import CONFIRM_ANSWERS, CONFIRM_POSITIVE
+from consts import CONFIRM_POSITIVE
 from db import DB
 from entites import Author, User
-from utils import reshape, update_confirm_status, with_db
+from keyboards.author import authors_inline_keyboard
+from keyboards.confirm import confirm_inline_keyboard
+from utils import update_confirm_status, with_db
 
 
 ADD_AUTHOR = 'add_author'
@@ -30,10 +32,7 @@ async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: 
             return ConversationHandler.END
         else:
             author = Author(user, name=author_name)
-            confirm_reply_keyboard = [
-                [InlineKeyboardButton(text, callback_data=(text, author)) for text in CONFIRM_ANSWERS]
-            ]
-            confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
+            confirm_markup = confirm_inline_keyboard(optional_data=(author,))
             await update.message.reply_text('Добавить автора "{}"?'.format(author.name), reply_markup=confirm_markup)
             return ADD_AUTHOR_CONFIRM
     else:
@@ -74,12 +73,8 @@ REMOVE_AUTHOR_ACTION, REMOVE_AUTHOR_CONFIRM = range(2)
 @with_db
 async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     authors = db.list_authors(user)
-    author_buttons = [
-        InlineKeyboardButton(author.name, callback_data=author) for author in authors
-    ]
-    authors_keyboard = reshape(author_buttons, len(authors) // 2 + len(authors) % 2, 2)
-    authors_markup = InlineKeyboardMarkup(authors_keyboard)
-    await update.message.reply_text('Какого автора ты хочешь удалить?', reply_markup=authors_markup)
+    author_markup = authors_inline_keyboard(authors)
+    await update.message.reply_text('Какого автора ты хочешь удалить?', reply_markup=author_markup)
     return REMOVE_AUTHOR_ACTION
 
 # TODO: add cancel button to author buttons list
@@ -88,12 +83,9 @@ async def remove_author_callback(update: Update, context: CallbackContext.DEFAUL
     query = update.callback_query
     await query.answer()
 
-    author: Author = query.data
-
-    confirm_reply_keyboard = [
-        [InlineKeyboardButton(answer, callback_data=(answer, author)) for answer in CONFIRM_ANSWERS]
-    ]
-    confirm_markup = InlineKeyboardMarkup(confirm_reply_keyboard)
+    author: Author
+    author, = query.data
+    confirm_markup = confirm_inline_keyboard(optional_data=(author,))
 
     text = f"Удалить автора `{author.name}`? Вместе с ним удалятся все его произведения, а также все твои записи о них"
     await query.edit_message_text(text=text, reply_markup=confirm_markup)

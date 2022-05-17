@@ -104,7 +104,6 @@ class DB:
         else:
             logging.debug(f'User with {user.id=} already in db')
 
-
     def add_author(self, author: Author):
         cursor = self.conn.cursor()
         cursor.execute(

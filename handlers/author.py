@@ -1,5 +1,3 @@
-from distutils.log import error
-import errno
 import logging
 
 from telegram import Update
@@ -41,9 +39,8 @@ async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: 
     else:
         author = Author(user, name=author_name)
         confirm_markup = confirm_inline_keyboard(optional_data=(author,))
-        await update.message.reply_text('Добавить автора "{}"?'.format(author.name), reply_markup=confirm_markup)
+        await update.message.reply_text('Добавить автора `{}`?'.format(author.name), reply_markup=confirm_markup)
         return ADD_AUTHOR_CONFIRM
-
 
 
 @with_db
@@ -118,7 +115,7 @@ async def remove_author_callback(update: Update, context: CallbackContext.DEFAUL
     author, = query.data    # type: ignore
     confirm_markup = confirm_inline_keyboard(optional_data=(author,))
 
-    text = f"Удалить автора `{author.name}`? Вместе с ним удалятся все его произведения, а также все твои записи о них"
+    text = f'Удалить автора `{author.name}`? Вместе с ним удалятся все его произведения, а также все твои записи о них'
     await query.edit_message_text(text=text, reply_markup=confirm_markup)
     return REMOVE_AUTHOR_CONFIRM
 
@@ -153,13 +150,13 @@ async def remove_author_confirm_callback(update: Update, context: CallbackContex
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_author_handlers(cancel_handler: CommandHandler):
+def get_author_handlers(fallback_handler: CommandHandler, cancel_handler: CallbackQueryHandler):
     add_author_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_AUTHOR, add_author, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
             ADD_AUTHOR_CONFIRM: [CallbackQueryHandler(add_author_name_callback)],
         },
-        fallbacks=[cancel_handler],
+        fallbacks=[fallback_handler],
     )
 
     list_authors_handler = CommandHandler(LIST_AUTHORS, list_authors, filters=~filters.UpdateType.EDITED_MESSAGE)
@@ -167,10 +164,13 @@ def get_author_handlers(cancel_handler: CommandHandler):
     remove_author_handler = ConversationHandler(
         entry_points=[CommandHandler(REMOVE_AUTHOR, remove_author, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
-            REMOVE_AUTHOR_ACTION: [CallbackQueryHandler(remove_author_callback)],
+            REMOVE_AUTHOR_ACTION: [
+                CallbackQueryHandler(remove_author_callback, pattern=tuple),
+                cancel_handler,
+            ],
             REMOVE_AUTHOR_CONFIRM: [CallbackQueryHandler(remove_author_confirm_callback)],
         },
-        fallbacks=[cancel_handler],
+        fallbacks=[fallback_handler],
     )
 
     return (

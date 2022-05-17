@@ -1,18 +1,20 @@
 from itertools import groupby
 import logging
 
+from telegram import Update
+from telegram.ext import (
+    CallbackContext, CallbackQueryHandler, CommandHandler, ConversationHandler, filters
+)
+
 from consts import CONFIRM_POSITIVE
 from db import DB
 from entites import Author, Review, Story, User
 from keyboards.author import authors_inline_keyboard
-from keyboards.story import stories_inline_keyboard
 from keyboards.confirm import confirm_inline_keyboard
-from utils import reshape, update_confirm_status, with_db
-
-from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
-from telegram.ext import (
-    CallbackContext, CallbackQueryHandler, CommandHandler, ConversationHandler, filters
-)
+from keyboards.story import stories_inline_keyboard
+from keyboards.rank import rank_inline_keyboard
+from keyboards.review import reviews_inline_keyboard
+from utils import update_confirm_status, with_db
 
 
 ADD_REVIEW = 'add_review'
@@ -67,7 +69,7 @@ async def add_review_story_callback(update: Update, context: CallbackContext.DEF
     story_markup = stories_inline_keyboard(stories, optional_data=(review,))
 
     await query.edit_message_text(
-        text=f"Выбери произведение автора `{author.name}`",
+        text=f'Выбери произведение автора `{author.name}`',
         reply_markup=story_markup,
     )
     return ADD_REVIEW_RANK
@@ -92,12 +94,10 @@ async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE,
     review.story_id = story.id
     review.story_title = story.title
 
-    rank_buttons = [InlineKeyboardButton(str(rank), callback_data=(review, rank)) for rank in range(6)]
-    rank_keyborad = reshape(rank_buttons, 2, 3)
-    rank_markup = InlineKeyboardMarkup(rank_keyborad)
+    rank_markup = rank_inline_keyboard(optional_data=(review,))
 
     await query.edit_message_text(
-        text=f"Оцени произведение `{review.story_title}` автора `{review.author_name}`",
+        text=f'Оцени произведение `{review.story_title}` автора `{review.author_name}`',
         reply_markup=rank_markup,
     )
     return ADD_REVIEW_CONFIRM
@@ -115,9 +115,9 @@ async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TY
         logging.error('query.data is None in add_review_confirm()')
         return ConversationHandler.END
 
-    review: Review
     rank: int
-    review, rank = query.data       # type: ignore
+    review: Review
+    rank, review = query.data       # type: ignore
     review.rank = rank
 
     confirm_markup = confirm_inline_keyboard(optional_data=(review,))
@@ -220,7 +220,7 @@ async def remove_review_get_story(update: Update, context: CallbackContext.DEFAU
     story_markup = stories_inline_keyboard(stories, optional_data=(author,))
 
     await query.edit_message_text(
-        text=f'Выбери произведение автора {author.name}',
+        text=f'Выбери произведение автора `{author.name}`',
         reply_markup=story_markup,
     )
     return REMOVE_REVIEW_GET_REVIEW
@@ -243,15 +243,11 @@ async def remove_review_get_review(update: Update, context: CallbackContext.DEFA
     story, author = query.data      # type: ignore
 
     reviews = db.list_story_reviews(user, story_id=story.id)
-    reviews_buttons = [
-        InlineKeyboardButton(review.text[:15], callback_data=(author, story, review)) for review in reviews
-    ]
-    reviews_keyboard = reshape(reviews_buttons, len(reviews) // 2 + len(reviews) % 2, 2)
-    reviews_markup = InlineKeyboardMarkup(reviews_keyboard)
+    review_markup = reviews_inline_keyboard(reviews, optional_data=(author, story))
 
     await query.edit_message_text(
         text=f'Выбери свой отзыв на произведение `{story.title}` автора `{author.name}`',
-        reply_markup=reviews_markup,
+        reply_markup=review_markup,
     )
     return REMOVE_REVIEW_CONFIRM
 
@@ -268,15 +264,15 @@ async def remove_review_confirm(update: Update, context: CallbackContext.DEFAULT
         logging.error('query.data is None in remove_review_confirm()')
         return ConversationHandler.END
 
+    review: Review
     author: Author
     story: Story
-    review: Review
-    author, story, review = query.data      # type: ignore
+    review, author, story = query.data      # type: ignore
 
     confirm_markup = confirm_inline_keyboard(optional_data=(review,))
 
     await query.edit_message_text(
-        text=f"Удалить отзыв на произведение `{story.title}` автора `{author.name}`?",
+        text=f'Удалить отзыв на произведение `{story.title}` автора `{author.name}`?',
         reply_markup=confirm_markup,
     )
     return REMOVE_REVIEW_CONFIRM_CALLBACK
@@ -312,18 +308,27 @@ async def remove_review_confirm_callback(update: Update, context: CallbackContex
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_review_handlers(cancel_handler: CommandHandler):
+def get_review_handlers(fallback_handler: CommandHandler, cancel_handler: CallbackQueryHandler):
     add_review_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_REVIEW, add_review, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
-            ADD_REVIEW_STORY: [CallbackQueryHandler(add_review_story_callback)],
-            ADD_REVIEW_RANK: [CallbackQueryHandler(add_review_rank)],
-            ADD_REVIEW_CONFIRM: [CallbackQueryHandler(add_review_confirm)],
+            ADD_REVIEW_STORY: [
+                CallbackQueryHandler(add_review_story_callback, pattern=tuple),
+                cancel_handler,
+            ],
+            ADD_REVIEW_RANK: [
+                CallbackQueryHandler(add_review_rank, pattern=tuple),
+                cancel_handler,
+            ],
+            ADD_REVIEW_CONFIRM: [
+                CallbackQueryHandler(add_review_confirm, pattern=tuple),
+                cancel_handler,
+            ],
             ADD_REVIEW_CONFIRM_CALLBACK: [
                 CallbackQueryHandler(add_review_confirm_callback)
             ],
         },
-        fallbacks=[cancel_handler],
+        fallbacks=[fallback_handler],
     )
 
     list_reviews_handler = CommandHandler(LIST_REVIEWS, list_reviews, filters=~filters.UpdateType.EDITED_MESSAGE)
@@ -331,12 +336,21 @@ def get_review_handlers(cancel_handler: CommandHandler):
     remove_review_handler = ConversationHandler(
         entry_points=[CommandHandler(REMOVE_REVIEW, remove_review, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
-            REMOVE_REVIEW_GET_STORY: [CallbackQueryHandler(remove_review_get_story)],
-            REMOVE_REVIEW_GET_REVIEW: [CallbackQueryHandler(remove_review_get_review)],
-            REMOVE_REVIEW_CONFIRM: [CallbackQueryHandler(remove_review_confirm)],
+            REMOVE_REVIEW_GET_STORY: [
+                CallbackQueryHandler(remove_review_get_story, pattern=tuple),
+                cancel_handler,
+            ],
+            REMOVE_REVIEW_GET_REVIEW: [
+                CallbackQueryHandler(remove_review_get_review, pattern=tuple),
+                cancel_handler,
+            ],
+            REMOVE_REVIEW_CONFIRM: [
+                CallbackQueryHandler(remove_review_confirm),
+                cancel_handler,
+            ],
             REMOVE_REVIEW_CONFIRM_CALLBACK: [CallbackQueryHandler(remove_review_confirm_callback)],
         },
-        fallbacks=[cancel_handler],
+        fallbacks=[fallback_handler],
     )
 
     return [

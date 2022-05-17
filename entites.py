@@ -1,5 +1,6 @@
 INVALID_ID = -1
 
+
 class User:
     def __init__(self, effective_user):
         self.id = effective_user.id

@@ -1,6 +1,12 @@
 from itertools import groupby
 import logging
 
+from telegram import Update
+from telegram.ext import (
+    CallbackContext,
+    CallbackQueryHandler, CommandHandler, ConversationHandler, filters
+)
+
 from consts import CONFIRM_POSITIVE
 from db import DB
 from entites import Author, Story, User
@@ -8,12 +14,6 @@ from keyboards.author import authors_inline_keyboard
 from keyboards.story import stories_inline_keyboard
 from keyboards.confirm import confirm_inline_keyboard
 from utils import update_confirm_status, with_db
-
-from telegram import Update
-from telegram.ext import (
-    CallbackContext,
-    CallbackQueryHandler, CommandHandler, ConversationHandler, filters
-)
 
 
 ADD_STORY = 'add_story'
@@ -70,7 +70,7 @@ async def add_story_author_confirm_callback(update: Update, context: CallbackCon
     confirm_markup = confirm_inline_keyboard(optional_data=(story,))
 
     await query.edit_message_text(
-        text=f"Добавить произведение `{story.title}` автора `{author.name}`?",
+        text=f'Добавить произведение `{story.title}` автора `{author.name}`?',
         reply_markup=confirm_markup,
     )
     return ADD_STORY_CONFIRM
@@ -155,7 +155,7 @@ async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT
     confirm_markup = confirm_inline_keyboard(optional_data=(story,))
 
     await query.edit_message_text(
-        text=f"Удалить произведение `{story.title}`? Вместе с ним удалится твоя запись о нём (если она есть)",
+        text=f'Удалить произведение `{story.title}`? Вместе с ним удалится твоя запись о нём (если она есть)',
         reply_markup=confirm_markup,
     )
     return REMOVE_STORY_CONFIRM
@@ -192,14 +192,17 @@ async def remove_story_confirm_callback(update: Update, context: CallbackContext
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_story_handlers(cancel_handler: CommandHandler):
+def get_story_handlers(fallback_handler: CommandHandler, cancel_handler: CallbackQueryHandler):
     add_story_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_STORY, add_story, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
-            ADD_STORY_AUTHOR_CONFIRM: [CallbackQueryHandler(add_story_author_confirm_callback)],
+            ADD_STORY_AUTHOR_CONFIRM: [
+                CallbackQueryHandler(add_story_author_confirm_callback, pattern=tuple),
+                cancel_handler
+            ],
             ADD_STORY_CONFIRM: [CallbackQueryHandler(add_story_confirm_callback)],
         },
-        fallbacks=[cancel_handler],
+        fallbacks=[fallback_handler],
     )
 
     list_stories_handler = CommandHandler(LIST_STORIES, list_stories, filters=~filters.UpdateType.EDITED_MESSAGE)
@@ -207,10 +210,13 @@ def get_story_handlers(cancel_handler: CommandHandler):
     remove_story_handler = ConversationHandler(
         entry_points=[CommandHandler(REMOVE_STORY, remove_story, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
-            REMOVE_STORY_CALLBACK: [CallbackQueryHandler(remove_story_callback)],
+            REMOVE_STORY_CALLBACK: [
+                CallbackQueryHandler(remove_story_callback, pattern=tuple),
+                cancel_handler,
+            ],
             REMOVE_STORY_CONFIRM: [CallbackQueryHandler(remove_story_confirm_callback)],
         },
-        fallbacks=[cancel_handler],
+        fallbacks=[fallback_handler],
     )
 
     return (

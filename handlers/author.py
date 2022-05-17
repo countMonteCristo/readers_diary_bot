@@ -20,7 +20,7 @@ REMOVE_AUTHOR = 'remove_author'
 
 
 # ADD AUTHOR -----------------------------------------------------------------------------------------------------------
-ADD_AUTHOR_CONFIRM = 0
+ADD_AUTHOR_CONFIRM, = range(1)
 
 
 @with_db

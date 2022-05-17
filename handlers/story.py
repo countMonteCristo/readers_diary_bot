@@ -121,8 +121,7 @@ async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE, db
 
 
 # REMOVE STORY ---------------------------------------------------------------------------------------------------------
-# TODO: Возможность выбрать автора перед удалением произведения
-REMOVE_STORY_CALLBACK, REMOVE_STORY_CONFIRM = range(2)
+REMOVE_STORY_GET_AUTHOR_STORY, REMOVE_STORY_CALLBACK, REMOVE_STORY_CONFIRM = range(3)
 
 
 @with_db
@@ -130,10 +129,34 @@ async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db
     if update.message is None:
         return ConversationHandler.END
 
-    stories = db.list_stories(user)
+    authors = db.list_authors(user)
+    author_markup = authors_inline_keyboard(authors)
+    await update.message.reply_text('Выбери автора', reply_markup=author_markup)
+    return REMOVE_STORY_GET_AUTHOR_STORY
+
+
+@with_db
+async def remove_story_get_author_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
+    await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in remove_story_get_author_story()')
+        return ConversationHandler.END
+
+    author: Author
+    author, = query.data    # type: ignore
+
+    stories = db.list_stories(user, author_id=author.id)
     story_markup = stories_inline_keyboard(stories)
 
-    await update.message.reply_text('Какое произведение ты хочешь удалить?', reply_markup=story_markup)
+    await query.edit_message_text(
+        text=f'Выбери произведение автора`{author.name}`',
+        reply_markup=story_markup,
+    )
     return REMOVE_STORY_CALLBACK
 
 
@@ -210,6 +233,10 @@ def get_story_handlers(fallback_handler: CommandHandler, cancel_handler: Callbac
     remove_story_handler = ConversationHandler(
         entry_points=[CommandHandler(REMOVE_STORY, remove_story, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={
+            REMOVE_STORY_GET_AUTHOR_STORY: [
+                CallbackQueryHandler(remove_story_get_author_story, pattern=tuple),
+                cancel_handler,
+            ],
             REMOVE_STORY_CALLBACK: [
                 CallbackQueryHandler(remove_story_callback, pattern=tuple),
                 cancel_handler,

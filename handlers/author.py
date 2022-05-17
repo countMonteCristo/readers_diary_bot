@@ -9,8 +9,8 @@ from telegram.ext import (
 from consts import CONFIRM_POSITIVE
 from db import DB
 from entities import Author, User
-from keyboards.author import authors_inline_keyboard
-from keyboards.confirm import confirm_inline_keyboard
+from formatters import format_authors
+from keyboards import authors_inline_keyboard, confirm_inline_keyboard
 from utils import update_confirm_status, with_db
 
 
@@ -80,7 +80,9 @@ async def list_authors(update: Update, context: CallbackContext.DEFAULT_TYPE, db
         return ConversationHandler.END
 
     authors = db.list_authors(user)
-    text = 'Твой список авторов:\n\n{}'.format('\n'.join(author.name for author in authors))
+    authors_str = format_authors(authors)
+    text = f'Твой список авторов:\n\n{authors_str}'
+
     await update.message.reply_text(text)
 # ----------------------------------------------------------------------------------------------------------------------
 

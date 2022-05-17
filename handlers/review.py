@@ -1,4 +1,3 @@
-from itertools import groupby
 import logging
 
 from telegram import Update
@@ -9,11 +8,11 @@ from telegram.ext import (
 from consts import CONFIRM_POSITIVE
 from db import DB
 from entities import Author, Review, Story, User
-from keyboards.author import authors_inline_keyboard
-from keyboards.confirm import confirm_inline_keyboard
-from keyboards.story import stories_inline_keyboard
-from keyboards.rank import rank_inline_keyboard
-from keyboards.review import reviews_inline_keyboard
+from formatters import format_reviews
+from keyboards import (
+    authors_inline_keyboard, confirm_inline_keyboard, stories_inline_keyboard,
+    rank_inline_keyboard, reviews_inline_keyboard,
+)
 from utils import update_confirm_status, with_db
 
 
@@ -166,21 +165,10 @@ async def list_reviews(update: Update, context: CallbackContext.DEFAULT_TYPE, db
     if update.message is None:
         return ConversationHandler.END
 
-    # TODO: add formatter functions for list_* commands
-    author_sep = '-' * 50
-    reviews_plain = db.list_reviews(user)
-    reviews_list = []
-    for author_key, author_reviews in groupby(reviews_plain, key=lambda r: r.author_name):
-        author_review_list = []
-        for story_key, author_story_reviews_group in groupby(author_reviews, key=lambda r: r.story_title):
-            rec = '  "{}":\n{}'.format(
-                story_key, '\n'.join('    - [{}] {}'.format(r.rank, r.text) for r in author_story_reviews_group)
-            )
-            author_review_list.append(rec)
-        author_rec = '{}:\n{}\n'.format(author_key, ' \n\n'.join(author_review_list))
-        reviews_list.append(author_rec)
+    reviews = db.list_reviews(user)
+    reviews_txt = format_reviews(reviews)
 
-    text = 'Твой список отзывов:\n\n{}'.format(f'{author_sep}\n'.join(reviews_list))
+    text = f'Твой список отзывов:\n\n{reviews_txt}'
     await update.message.reply_text(text)
 # ----------------------------------------------------------------------------------------------------------------------
 

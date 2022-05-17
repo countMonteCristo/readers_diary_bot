@@ -1,4 +1,3 @@
-from itertools import groupby
 import logging
 
 from telegram import Update
@@ -10,9 +9,8 @@ from telegram.ext import (
 from consts import CONFIRM_POSITIVE
 from db import DB
 from entities import Author, Story, User
-from keyboards.author import authors_inline_keyboard
-from keyboards.story import stories_inline_keyboard
-from keyboards.confirm import confirm_inline_keyboard
+from formatters import format_stories
+from keyboards import authors_inline_keyboard, stories_inline_keyboard, confirm_inline_keyboard
 from utils import update_confirm_status, with_db
 
 
@@ -111,11 +109,9 @@ async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE, db
         return ConversationHandler.END
 
     stories = db.list_stories(user)
-    stories_list = []
-    for key, author_stories in groupby(stories, key=lambda story: story.author_name):
-        author_story_lits = '{}:\n{}'.format(key, '\n'.join('    {}'.format(story.title) for story in author_stories))
-        stories_list.append(author_story_lits)
-    text = 'Твой список произведений:\n\n{}'.format('\n\n'.join(stories_list))
+    stories_str = format_stories(stories)
+    text = f'Твой список произведений:\n\n{stories_str}'
+
     await update.message.reply_text(text)
 # ----------------------------------------------------------------------------------------------------------------------
 

@@ -6,10 +6,10 @@ from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, Co
 from config import Config
 from db import DB
 from entities import User
-from handlers.author import get_author_handlers
-from handlers.common import get_cancel_handler, get_fallback_handler
-from handlers.review import get_review_handlers
-from handlers.story import get_story_handlers
+from handlers import (
+    get_author_handlers, get_review_handlers, get_story_handlers,
+    get_cancel_handler, get_fallback_handler,
+)
 from utils import with_db
 
 

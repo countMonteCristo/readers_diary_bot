@@ -1,3 +1,5 @@
+INVALID_ID = -1
+
 class User:
     def __init__(self, effective_user):
         self.id = effective_user.id
@@ -9,30 +11,32 @@ class User:
 
 
 class Author:
-    def __init__(self, user: User, name: str = '', id_: int = -1):
+    def __init__(self, user: User, name: str = '', id_: int = INVALID_ID):
         self.user_id = user.id
         self.name = name
         self.id = id_
 
 
 class Story:
-    def __init__(self, user: User, title: str = '', id_: int = -1, author_name: str = ''):
+    def __init__(self, user: User, title: str = '', id_: int = INVALID_ID, author_name: str = ''):
         self.user_id = user.id
         self.title = title
-        self.author_id = None
+        self.author_id = INVALID_ID
         self.author_name = author_name
         self.id = id_
 
 
 class Review:
     def __init__(
-        self, user: User, text: str, id_: int = -1, author_name: str = '', story_title: str = '', rank: int = -1,
+        self, user: User, text: str, id_: int = INVALID_ID, author_name: str = '',
+        story_title: str = '', rank: int = INVALID_ID,
     ):
         self.user_id = user.id
         self.text = text
         self.rank = rank
         self.author_name = author_name
-        self.author_id = None
+        self.author_id = INVALID_ID
+        self.story_id = INVALID_ID
         self.story_title = story_title
         self.id = id_
 

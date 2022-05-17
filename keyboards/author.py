@@ -5,7 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from entites import Author
 from utils import reshape
 
-from .utils import callback_args
+from .kb_utils import callback_args
 
 
 def authors_inline_keyboard(authors: List[Author], optional_data=None):

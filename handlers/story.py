@@ -1,4 +1,5 @@
 from itertools import groupby
+import logging
 
 from consts import CONFIRM_POSITIVE
 from db import DB
@@ -26,34 +27,43 @@ ADD_STORY_AUTHOR_CONFIRM, ADD_STORY_CONFIRM = range(2)
 
 @with_db
 async def add_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    story_title = ' '.join(context.args)
-    if story_title:
-        # Do not check the uniqueness of the story title, because
-        # it is possible for different authors to have same-titled stories
-        story = Story(user, title=story_title)
-
-        authors = db.list_authors(user)
-        author_markup = authors_inline_keyboard(authors, optional_data=(story,))
-        await update.message.reply_text(
-            'Кто автор произведения `{}`?'.format(story.title),
-            reply_markup=author_markup,
-        )
-        return ADD_STORY_AUTHOR_CONFIRM
-    else:
+    if update.message is None:
+        return ConversationHandler.END
+    if not context.args:
         await update.message.reply_text(f'Добавить произведение: `/add_story STORY_TITLE`')
         return ConversationHandler.END
+
+    story_title = ' '.join(context.args)
+    # Do not check the uniqueness of the story title, because
+    # it is possible for different authors to have same-titled stories
+    story = Story(user, title=story_title)
+
+    authors = db.list_authors(user)
+    author_markup = authors_inline_keyboard(authors, optional_data=(story,))
+    await update.message.reply_text(
+        'Кто автор произведения `{}`?'.format(story.title),
+        reply_markup=author_markup,
+    )
+    return ADD_STORY_AUTHOR_CONFIRM
 
 
 # TODO: check uniqueness of the story title for specified author
 @with_db
 async def add_story_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in add_story_author_confirm_callback()')
+        return ConversationHandler.END
 
     story: Story
     author: Author
 
-    author, story = query.data
+    author, story = query.data      # type: ignore
     story.author_name = author.name
     story.author_id = author.id
 
@@ -69,11 +79,22 @@ async def add_story_author_confirm_callback(update: Update, context: CallbackCon
 @with_db
 async def add_story_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.message is None:
+        logging.error('query.message is None in add_story_confirm_callback()')
+        return ConversationHandler.END
+
+    if query.data is None:
+        logging.error('query.data is None in add_story_confirm_callback')
+        return ConversationHandler.END
 
     answer: str
     story: Story
-    answer, story = query.data
+    answer, story = query.data      # type: ignore
     if answer == CONFIRM_POSITIVE:
         db.add_story(story)
         status_msg = 'добавлено'
@@ -86,6 +107,9 @@ async def add_story_confirm_callback(update: Update, context: CallbackContext.DE
 # LIST STORIES ---------------------------------------------------------------------------------------------------------
 @with_db
 async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     stories = db.list_stories(user)
     stories_list = []
     for key, author_stories in groupby(stories, key=lambda story: story.author_name):
@@ -103,6 +127,9 @@ REMOVE_STORY_CALLBACK, REMOVE_STORY_CONFIRM = range(2)
 
 @with_db
 async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     stories = db.list_stories(user)
     story_markup = stories_inline_keyboard(stories)
 
@@ -113,10 +140,17 @@ async def remove_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db
 @with_db
 async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
 
+    if query.data is None:
+        logging.error('query.data is None in remove_story_callback()')
+        return ConversationHandler.END
+
     story: Story
-    story, = query.data
+    story, = query.data     # type: ignore
 
     confirm_markup = confirm_inline_keyboard(optional_data=(story,))
 
@@ -130,11 +164,22 @@ async def remove_story_callback(update: Update, context: CallbackContext.DEFAULT
 @with_db
 async def remove_story_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.message is None:
+        logging.error('query.message is None in remove_story_confirm_callback()')
+        return ConversationHandler.END
+
+    if query.data is None:
+        logging.error('query.data is None in remove_story_confirm_callback')
+        return ConversationHandler.END
 
     answer: str
     story: Story
-    answer, story = query.data
+    answer, story = query.data      # type: ignore
 
     if answer == CONFIRM_POSITIVE:
         db.remove_story(user, story.id)

@@ -2,7 +2,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 from consts import CONFIRM_ANSWERS
 
-from .utils import callback_args
+from .kb_utils import callback_args
 
 
 def confirm_inline_keyboard(optional_data=None):

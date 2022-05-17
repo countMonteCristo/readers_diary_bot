@@ -1,4 +1,5 @@
 from functools import wraps
+import logging
 
 from telegram import CallbackQuery
 
@@ -41,6 +42,9 @@ def with_db(callable):
 
 async def update_confirm_status(query: CallbackQuery, status_msg: str):
     '''Обновляем статус операции в сообщении'''
+    if query.message is None:
+        logging.error('query.message is None in update_confirm_status')
+        return
     await query.edit_message_text(text="{}\n\nСтатус операции: {}".format(query.message.text, status_msg))
 
 

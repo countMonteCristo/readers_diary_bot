@@ -104,62 +104,6 @@ class DB:
         else:
             logging.debug(f'User with {user.id=} already in db')
 
-    def save_review(self, review: Review):
-        cursor = self.conn.cursor()
-        # 1. Ищем автора по имени
-        author_id = None
-        authors = cursor.execute(
-            '''SELECT id FROM author WHERE user_id == ? AND name == ?''',
-            (review.user_id, review.author)
-        ).fetchall()
-        if not len(authors):
-            # нет такого автора, добавляем
-            cursor.execute(
-                '''INSERT INTO author (user_id, name) VALUES (?, ?)''',
-                (review.user_id, review.author)
-            )
-            author_id = cursor.lastrowid
-            self.conn.commit()
-            pass
-        else:
-            author_id = authors[0][0]
-
-        # 2. Ищем произведение по имени
-        story_id = None
-        stories = cursor.execute(
-            '''SELECT id FROM story WHERE user_id == ? AND author_id == ? AND title == ?''',
-            (review.user_id, author_id, review.title)
-        ).fetchall()
-        if not len(stories):
-            # нет такого произведения, добавляем
-            cursor.execute(
-                '''INSERT INTO story (user_id, title, author_id) VALUES (?, ?, ?)''',
-                (review.user_id, review.title, author_id)
-            )
-            story_id = cursor.lastrowid
-            self.conn.commit()
-            pass
-        else:
-            story_id = stories[0][0]
-
-        # 3. Проверяем, что записи про это произведение ещё нет
-        reviews = cursor.execute(
-            '''SELECT text, rank FROM review WHERE user_id == ? AND story_id == ?''',
-            (review.user_id, story_id)
-        ).fetchall()
-        if not len(reviews):
-            # нет такого произведения, добавляем
-            cursor.execute(
-                '''INSERT INTO review (user_id, story_id, text, rank) VALUES (?, ?, ?, ?)''',
-                (review.user_id, story_id, review.text, review.rank)
-            )
-        else:
-            # заменяем
-            cursor.execute(
-                '''UPDATE review SET text = ?, rank = ? WHERE user_id == ? AND story_id == ? LIMIT 1''',
-                (review.text, review.rank, review.user_id, story_id)
-            )
-        self.conn.commit()
 
     def add_author(self, author: Author):
         cursor = self.conn.cursor()

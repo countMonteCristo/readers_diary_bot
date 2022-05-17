@@ -11,6 +11,9 @@ CANCEL_COMMAND = 'cancel'
 
 @with_db
 async def cancel(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     await update.message.reply_text(
         'Ну и ладно, в другой раз тогда'
     )

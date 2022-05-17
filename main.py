@@ -1,7 +1,7 @@
 import logging
 
 from telegram import Update
-from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, ConversationHandler
 
 from config import Config
 from db import DB
@@ -16,6 +16,9 @@ from utils import with_db
 # ENTRY POINT ------------------------------------------------------------------
 @with_db
 async def start(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     text = '''Привет, {}!
 Я - бот для твоего читательского дневника.
 Здесь ты можешь отмечать всё, что прочитал, ставить оценки и всякое такое.

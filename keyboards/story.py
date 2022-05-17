@@ -5,7 +5,7 @@ from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 from entites import Story
 from utils import reshape
 
-from .utils import callback_args
+from .kb_utils import callback_args
 
 
 def stories_inline_keyboard(stories: List[Story], optional_data=None):

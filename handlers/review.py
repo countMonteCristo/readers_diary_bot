@@ -1,4 +1,5 @@
 from itertools import groupby
+import logging
 
 from consts import CONFIRM_POSITIVE
 from db import DB
@@ -25,30 +26,39 @@ ADD_REVIEW_STORY, ADD_REVIEW_RANK, ADD_REVIEW_CONFIRM, ADD_REVIEW_CONFIRM_CALLBA
 
 @with_db
 async def add_review(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    review_text = ' '.join(context.args)
-    if review_text:
-        review = Review(user, text=review_text)
-
-        authors = db.list_authors(user)
-        author_markup = authors_inline_keyboard(authors, optional_data=(review,))
-
-        await update.message.reply_text(
-            'Выбери автора', reply_markup=author_markup,
-        )
-        return ADD_REVIEW_STORY
-    else:
+    if update.message is None:
+        return ConversationHandler.END
+    if not context.args:
         await update.message.reply_text(f'Добавить отзыв: `/add_review REVIEW_TEXT`')
         return ConversationHandler.END
+
+    review_text = ' '.join(context.args)
+    review = Review(user, text=review_text)
+
+    authors = db.list_authors(user)
+    author_markup = authors_inline_keyboard(authors, optional_data=(review,))
+
+    await update.message.reply_text(
+        'Выбери автора', reply_markup=author_markup,
+    )
+    return ADD_REVIEW_STORY
 
 
 @with_db
 async def add_review_story_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in add_review_story_callback()')
+        return ConversationHandler.END
 
     author: Author
     review: Review
-    author, review = query.data
+    author, review = query.data     # type: ignore
 
     review.author_name = author.name
     review.author_id = author.id
@@ -66,11 +76,18 @@ async def add_review_story_callback(update: Update, context: CallbackContext.DEF
 @with_db
 async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in add_review_rank()')
+        return ConversationHandler.END
 
     story: Story
     review: Review
-    story, review = query.data
+    story, review = query.data      # type: ignore
 
     review.story_id = story.id
     review.story_title = story.title
@@ -89,11 +106,18 @@ async def add_review_rank(update: Update, context: CallbackContext.DEFAULT_TYPE,
 @with_db
 async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in add_review_confirm()')
+        return ConversationHandler.END
 
     review: Review
     rank: int
-    review, rank = query.data
+    review, rank = query.data       # type: ignore
     review.rank = rank
 
     confirm_markup = confirm_inline_keyboard(optional_data=(review,))
@@ -108,11 +132,22 @@ async def add_review_confirm(update: Update, context: CallbackContext.DEFAULT_TY
 @with_db
 async def add_review_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.message is None:
+        logging.error('query.message is None in add_review_confirm_callback()')
+        return ConversationHandler.END
+
+    if query.data is None:
+        logging.error('query.data is None in add_review_confirm_callback()')
+        return ConversationHandler.END
 
     answer: str
     review: Review
-    answer, review = query.data
+    answer, review = query.data     # type: ignore
 
     if answer == CONFIRM_POSITIVE:
         db.add_review(review)
@@ -128,6 +163,9 @@ async def add_review_confirm_callback(update: Update, context: CallbackContext.D
 # LIST REVIEWS ---------------------------------------------------------------------------------------------------------
 @with_db
 async def list_reviews(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     # TODO: add formatter functions for list_* commands
     author_sep = '-' * 50
     reviews_plain = db.list_reviews(user)
@@ -153,6 +191,9 @@ REMOVE_REVIEW_GET_STORY, REMOVE_REVIEW_GET_REVIEW, REMOVE_REVIEW_CONFIRM, REMOVE
 
 @with_db
 async def remove_review(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     authors = db.list_authors(user)
     author_markup = authors_inline_keyboard(authors)
 
@@ -163,10 +204,17 @@ async def remove_review(update: Update, context: CallbackContext.DEFAULT_TYPE, d
 @with_db
 async def remove_review_get_story(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
 
+    if query.data is None:
+        logging.error('query.data is None in remove_review_get_story()')
+        return ConversationHandler.END
+
     author: Author
-    author, = query.data
+    author, = query.data    # type: ignore
 
     stories = db.list_stories(user, author.id)
     story_markup = stories_inline_keyboard(stories, optional_data=(author,))
@@ -181,11 +229,18 @@ async def remove_review_get_story(update: Update, context: CallbackContext.DEFAU
 @with_db
 async def remove_review_get_review(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in remove_review_get_review()')
+        return ConversationHandler.END
 
     author: Author
     story: Story
-    story, author = query.data
+    story, author = query.data      # type: ignore
 
     reviews = db.list_story_reviews(user, story_id=story.id)
     reviews_buttons = [
@@ -204,12 +259,19 @@ async def remove_review_get_review(update: Update, context: CallbackContext.DEFA
 @with_db
 async def remove_review_confirm(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.data is None:
+        logging.error('query.data is None in remove_review_confirm()')
+        return ConversationHandler.END
 
     author: Author
     story: Story
     review: Review
-    author, story, review = query.data
+    author, story, review = query.data      # type: ignore
 
     confirm_markup = confirm_inline_keyboard(optional_data=(review,))
 
@@ -223,11 +285,22 @@ async def remove_review_confirm(update: Update, context: CallbackContext.DEFAULT
 @with_db
 async def remove_review_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.message is None:
+        logging.error('query.message is None in remove_review_confirm_callback()')
+        return ConversationHandler.END
+
+    if query.data is None:
+        logging.error('query.data is None in remove_review_confirm_callback()')
+        return ConversationHandler.END
 
     answer: str
     review: Review
-    answer, review = query.data
+    answer, review = query.data     # type: ignore
     if answer == CONFIRM_POSITIVE:
         db.remove_review(user, review.id)
         status_msg = 'удалён'

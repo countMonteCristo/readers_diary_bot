@@ -1,3 +1,7 @@
+from distutils.log import error
+import errno
+import logging
+
 from telegram import Update
 from telegram.ext import (
     CallbackContext,
@@ -23,29 +27,43 @@ ADD_AUTHOR_CONFIRM = 0
 
 @with_db
 async def add_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-
-    author_name = ' '.join(context.args)
-    if author_name:
-        author_id = db.author_id(user, author_name)
-        if author_id != -1:
-            await update.message.reply_text(f'Такой автор уже есть в базе')
-            return ConversationHandler.END
-        else:
-            author = Author(user, name=author_name)
-            confirm_markup = confirm_inline_keyboard(optional_data=(author,))
-            await update.message.reply_text('Добавить автора "{}"?'.format(author.name), reply_markup=confirm_markup)
-            return ADD_AUTHOR_CONFIRM
-    else:
+    if update.message is None:
+        return ConversationHandler.END
+    if not context.args:
         await update.message.reply_text(f'Добавить автора: `/add_author AUTHOR_NAME`')
         return ConversationHandler.END
+
+    author_name = ' '.join(context.args)
+    author_id = db.author_id(user, author_name)
+    if author_id != -1:
+        await update.message.reply_text(f'Такой автор уже есть в базе')
+        return ConversationHandler.END
+    else:
+        author = Author(user, name=author_name)
+        confirm_markup = confirm_inline_keyboard(optional_data=(author,))
+        await update.message.reply_text('Добавить автора "{}"?'.format(author.name), reply_markup=confirm_markup)
+        return ADD_AUTHOR_CONFIRM
+
 
 
 @with_db
 async def add_author_name_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
 
-    answer, author = query.data
+    if query.message is None:
+        logging.error('query.message is None')
+        return ConversationHandler.END
+
+    if query.data is None:
+        logging.error('query.data is None in add_author_name_callback()')
+        return ConversationHandler.END
+    answer: str
+    author: Author
+    answer, author = query.data     # type: ignore
 
     if answer == CONFIRM_POSITIVE:
         db.add_author(author)
@@ -61,6 +79,9 @@ async def add_author_name_callback(update: Update, context: CallbackContext.DEFA
 # LIST AUTHORS ---------------------------------------------------------------------------------------------------------
 @with_db
 async def list_authors(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     authors = db.list_authors(user)
     text = 'Твой список авторов:\n\n{}'.format('\n'.join(author.name for author in authors))
     await update.message.reply_text(text)
@@ -72,6 +93,9 @@ REMOVE_AUTHOR_ACTION, REMOVE_AUTHOR_CONFIRM = range(2)
 
 @with_db
 async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
+    if update.message is None:
+        return ConversationHandler.END
+
     authors = db.list_authors(user)
     author_markup = authors_inline_keyboard(authors)
     await update.message.reply_text('Какого автора ты хочешь удалить?', reply_markup=author_markup)
@@ -81,10 +105,17 @@ async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE, d
 @with_db
 async def remove_author_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
 
+    if query.data is None:
+        logging.error('query.data is None in remove_author_callback()')
+        return ConversationHandler.END
+
     author: Author
-    author, = query.data
+    author, = query.data    # type: ignore
     confirm_markup = confirm_inline_keyboard(optional_data=(author,))
 
     text = f"Удалить автора `{author.name}`? Вместе с ним удалятся все его произведения, а также все твои записи о них"
@@ -95,11 +126,22 @@ async def remove_author_callback(update: Update, context: CallbackContext.DEFAUL
 @with_db
 async def remove_author_confirm_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query
+    if query is None:
+        return ConversationHandler.END
+
     await query.answer()
+
+    if query.message is None:
+        logging.error('query.message is None')
+        return ConversationHandler.END
+
+    if query.data is None:
+        logging.error('query.data is None in remove_author_confirm_callback()')
+        return ConversationHandler.END
 
     answer: str
     author: Author
-    answer, author = query.data
+    answer, author = query.data     # type: ignore
     if answer == CONFIRM_POSITIVE:
         db.remove_author(user, author.id)
         status_msg = 'удалён'

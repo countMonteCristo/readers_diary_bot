@@ -5,7 +5,7 @@ from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler, Co
 
 from config import Config
 from db import DB
-from entites import User
+from entities import User
 from handlers.author import get_author_handlers
 from handlers.common import get_cancel_handler, get_fallback_handler
 from handlers.review import get_review_handlers

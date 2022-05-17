@@ -2,7 +2,7 @@ from typing import List
 
 from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
-from entites import Story
+from entities import Story
 from utils import reshape
 
 from .kb_utils import callback_args, CancelButton, get_rows_for_cols

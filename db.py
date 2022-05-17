@@ -2,7 +2,7 @@ import logging
 import sqlite3
 import sys
 
-from entites import Author, Review, Story, User
+from entities import Author, Review, Story, User
 
 
 class DB:

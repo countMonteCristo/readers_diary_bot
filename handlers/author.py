@@ -8,7 +8,7 @@ from telegram.ext import (
 
 from consts import CONFIRM_POSITIVE
 from db import DB
-from entites import Author, User
+from entities import Author, User
 from keyboards.author import authors_inline_keyboard
 from keyboards.confirm import confirm_inline_keyboard
 from utils import update_confirm_status, with_db
@@ -98,7 +98,7 @@ async def remove_author(update: Update, context: CallbackContext.DEFAULT_TYPE, d
     await update.message.reply_text('Какого автора ты хочешь удалить?', reply_markup=author_markup)
     return REMOVE_AUTHOR_ACTION
 
-# TODO: add cancel button to author buttons list
+
 @with_db
 async def remove_author_callback(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
     query = update.callback_query

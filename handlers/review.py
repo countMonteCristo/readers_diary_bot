@@ -8,7 +8,7 @@ from telegram.ext import (
 
 from consts import CONFIRM_POSITIVE
 from db import DB
-from entites import Author, Review, Story, User
+from entities import Author, Review, Story, User
 from keyboards.author import authors_inline_keyboard
 from keyboards.confirm import confirm_inline_keyboard
 from keyboards.story import stories_inline_keyboard

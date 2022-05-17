@@ -4,7 +4,7 @@ import logging
 from telegram import CallbackQuery
 
 from config import Config
-from entites import User
+from entities import User
 
 
 def reshape(array1d: list, nrows: int, ncols: int) -> list:

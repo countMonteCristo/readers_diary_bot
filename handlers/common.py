@@ -2,7 +2,7 @@ from telegram import Update
 from telegram.ext import CallbackContext, CommandHandler, ConversationHandler, CallbackQueryHandler
 
 from db import DB
-from entites import User
+from entities import User
 from utils import with_db, update_confirm_status
 
 

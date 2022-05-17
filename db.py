@@ -4,6 +4,7 @@ import logging
 
 from entites import Author, User, Review, Story
 
+
 class DB:
     def __init__(self, sqlite_fn):
         self.conn = sqlite3.connect(sqlite_fn)
@@ -158,7 +159,6 @@ class DB:
             )
         self.conn.commit()
 
-
     def add_author(self, author: Author):
         cursor = self.conn.cursor()
         cursor.execute(
@@ -194,7 +194,6 @@ class DB:
         )
         self.conn.commit()
 
-
     def add_story(self, story: Story):
         cursor = self.conn.cursor()
         cursor.execute(
@@ -203,13 +202,19 @@ class DB:
         )
         self.conn.commit()
 
-    def list_stories(self, user: User):
+    def list_stories(self, user: User, author_id: int = -1):
         cursor = self.conn.cursor()
-        authors = cursor.execute(
-            '''SELECT title, id FROM story WHERE user_id == ?''',
-            (user.id,)
-        ).fetchall()
-        return [Story(user, title=row[0], id_=row[1]) for row in authors]
+        if author_id == -1:
+            stories = cursor.execute(
+                '''SELECT title, id FROM story WHERE user_id == ?''',
+                (user.id,)
+            ).fetchall()
+        else:
+            stories = cursor.execute(
+                '''SELECT title, id FROM story WHERE user_id == ? AND author_id == ?''',
+                (user.id, author_id)
+            ).fetchall()
+        return [Story(user, title=row[0], id_=row[1]) for row in stories]
 
     def remove_story(self, user: User, story_id: int):
         cursor = self.conn.cursor()
@@ -219,6 +224,29 @@ class DB:
         )
         self.conn.commit()
 
+    def add_review(self, review: Review):
+        cursor = self.conn.cursor()
+        cursor.execute(
+            '''INSERT INTO review (user_id, story_id, text, rank) VALUES (?, ?, ?, ?)''',
+            (review.user_id, review.story_id, review.text, review.rank)
+        )
+        self.conn.commit()
+
+    def list_reviews(self, user: User, author_id: int = -1):
+        cursor = self.conn.cursor()
+        if author_id == -1:
+            reviews = cursor.execute(
+                '''SELECT text, id FROM review WHERE user_id == ?''',
+                (user.id,)
+            ).fetchall()
+        else:
+            reviews = cursor.execute(
+                '''SELECT review.text, review.id FROM review
+                JOIN story ON (review.user_id == story.user_id) AND (review.story_id == story.id)
+                WHERE review.user_id == ? AND story.author_id == ?''',
+                (user.id, author_id)
+            ).fetchall()
+        return [Review(user, text=row[0], id_=row[1]) for row in reviews]
 
 if __name__ == '__main__':
     db = DB(':memory:')

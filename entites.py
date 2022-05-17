@@ -25,9 +25,11 @@ class Story:
 
 
 class Review:
-    def __init__(self, user: User):
+    def __init__(self, user: User, text: str, id_: int = -1):
         self.user_id = user.id
-        self.text = None
+        self.text = text
         self.rank = None
-        self.author = None
-        self.title = None
+        self.author_name = None
+        self.author_id = None
+        self.story_title = None
+        self.id = id_

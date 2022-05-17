@@ -37,7 +37,7 @@ class Review:
         self.id = id_
 
     def __str__(self):
-        return f'Review(title="{self.story_title}",text="{self.text}",author="{self.author_name}")'
+        return f'Review(title="{self.story_title}",text="{self.text}",author="{self.author_name}",rank={self.rank})'
 
     def __repr__(self):
         return str(self)

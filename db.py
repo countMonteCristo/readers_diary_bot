@@ -1,8 +1,8 @@
-import sys
-import sqlite3
 import logging
+import sqlite3
+import sys
 
-from entites import Author, User, Review, Story
+from entites import Author, Review, Story, User
 
 
 class DB:

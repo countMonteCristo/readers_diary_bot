@@ -1,11 +1,9 @@
-from utils import with_db
 from db import DB
 from entites import User
+from utils import with_db
 
 from telegram import Update
-from telegram.ext import (
-    CallbackContext, ConversationHandler, CommandHandler
-)
+from telegram.ext import CallbackContext, CommandHandler, ConversationHandler
 
 
 CANCEL_COMMAND = 'cancel'

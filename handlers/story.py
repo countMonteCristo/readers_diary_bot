@@ -1,18 +1,17 @@
+from itertools import groupby
+
+from consts import CONFIRM_ANSWERS, CONFIRM_POSITIVE
 from db import DB
-from utils import with_db, reshape, update_confirm_status
-from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
-from entites import User, Story, Author
+from entites import Author, Story, User
+from utils import reshape, update_confirm_status, with_db
 
-from .common import get_cancel_handler
-
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackContext,
-    ConversationHandler, CommandHandler, CallbackQueryHandler,
-    filters
+    CallbackQueryHandler, CommandHandler, ConversationHandler, filters
 )
 
-from itertools import groupby
+from .common import get_cancel_handler
 
 
 ADD_STORY = 'add_story'

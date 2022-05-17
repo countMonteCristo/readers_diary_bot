@@ -1,11 +1,9 @@
-from entites import User
-from config import Config
-from consts import CONFIRM_ANSWERS
-
 from functools import wraps
-from collections.abc import Iterable
 
 from telegram import CallbackQuery
+
+from config import Config
+from entites import User
 
 
 def reshape(array1d: list, nrows: int, ncols: int) -> list:

@@ -1,17 +1,15 @@
-from utils import with_db, reshape
-from db import DB
-from entites import User, Author
-from .common import get_cancel_handler
-
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import (
     CallbackContext,
-    ConversationHandler, CommandHandler, CallbackQueryHandler,
-    filters
+    CallbackQueryHandler, CommandHandler, ConversationHandler, filters
 )
 
-from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
-from utils import update_confirm_status
+from consts import CONFIRM_ANSWERS, CONFIRM_POSITIVE
+from db import DB
+from entites import Author, User
+from utils import reshape, update_confirm_status, with_db
+
+from .common import get_cancel_handler
 
 
 ADD_AUTHOR = 'add_author'

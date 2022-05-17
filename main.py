@@ -1,19 +1,16 @@
 import logging
 
 from telegram import Update
-from telegram.ext import (
-    ApplicationBuilder, CallbackContext,
-    CommandHandler,
-)
+from telegram.ext import ApplicationBuilder, CallbackContext, CommandHandler
 
+from config import Config
 from db import DB
 from entites import User
 from handlers.author import get_author_handlers
-from handlers.story import get_story_handlers
-from handlers.review import get_review_handlers
 from handlers.common import get_cancel_handler
+from handlers.review import get_review_handlers
+from handlers.story import get_story_handlers
 from utils import with_db
-from config import Config
 
 
 # ENTRY POINT ------------------------------------------------------------------

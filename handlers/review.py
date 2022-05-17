@@ -10,8 +10,6 @@ from telegram.ext import (
     CallbackContext, CallbackQueryHandler, CommandHandler, ConversationHandler, filters
 )
 
-from .common import get_cancel_handler
-
 
 ADD_REVIEW = 'add_review'
 LIST_REVIEWS = 'list_reviews'
@@ -262,9 +260,7 @@ async def remove_review_confirm_callback(update: Update, context: CallbackContex
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_review_handlers():
-    cancel_handler = get_cancel_handler()
-
+def get_review_handlers(cancel_handler: CommandHandler):
     add_review_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_REVIEW, add_review, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={

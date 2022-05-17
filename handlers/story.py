@@ -11,8 +11,6 @@ from telegram.ext import (
     CallbackQueryHandler, CommandHandler, ConversationHandler, filters
 )
 
-from .common import get_cancel_handler
-
 
 ADD_STORY = 'add_story'
 LIST_STORIES = 'list_stories'
@@ -156,9 +154,7 @@ async def remove_story_confirm_callback(update: Update, context: CallbackContext
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_story_handlers():
-    cancel_handler = get_cancel_handler()
-
+def get_story_handlers(cancel_handler: CommandHandler):
     add_story_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_STORY, add_story, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={

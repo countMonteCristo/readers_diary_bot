@@ -41,9 +41,9 @@ if __name__ == '__main__':
     start_handler = CommandHandler('start', start)
     application.add_handler(start_handler)
 
-    author_handlers = get_author_handlers()
-    story_handlers = get_story_handlers()
-    review_handlers = get_review_handlers()
+    author_handlers = get_author_handlers(cancel_handler)
+    story_handlers = get_story_handlers(cancel_handler)
+    review_handlers = get_review_handlers(cancel_handler)
 
     application.add_handlers(author_handlers)
     application.add_handlers(story_handlers)

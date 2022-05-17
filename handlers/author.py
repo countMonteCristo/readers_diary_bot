@@ -9,8 +9,6 @@ from db import DB
 from entites import Author, User
 from utils import reshape, update_confirm_status, with_db
 
-from .common import get_cancel_handler
-
 
 ADD_AUTHOR = 'add_author'
 LIST_AUTHORS = 'list_authors'
@@ -121,9 +119,7 @@ async def remove_author_confirm_callback(update: Update, context: CallbackContex
 # ----------------------------------------------------------------------------------------------------------------------
 
 
-def get_author_handlers():
-    cancel_handler = get_cancel_handler()
-
+def get_author_handlers(cancel_handler: CommandHandler):
     add_author_handler = ConversationHandler(
         entry_points=[CommandHandler(ADD_AUTHOR, add_author, filters=~filters.UpdateType.EDITED_MESSAGE)],
         states={

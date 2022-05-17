@@ -206,15 +206,27 @@ class DB:
         cursor = self.conn.cursor()
         if author_id == -1:
             stories = cursor.execute(
-                '''SELECT title, id FROM story WHERE user_id == ?''',
+                '''
+                    SELECT story.title, story.id, author.name
+                    FROM story
+                    JOIN author ON (story.user_id == author.user_id) AND (story.author_id == author.id)
+                    WHERE story.user_id == ?
+                    ORDER BY story.author_id, story.title
+                ''',
                 (user.id,)
             ).fetchall()
         else:
             stories = cursor.execute(
-                '''SELECT title, id FROM story WHERE user_id == ? AND author_id == ?''',
+                '''
+                    SELECT story.title, story.id, author.name
+                    FROM story
+                    JOIN author ON (story.user_id == author.user_id) AND (story.author_id == author.id)
+                    WHERE story.user_id == ? AND story.author_id == ?
+                    ORDER BY story.title
+                ''',
                 (user.id, author_id)
             ).fetchall()
-        return [Story(user, title=row[0], id_=row[1]) for row in stories]
+        return [Story(user, title=row[0], id_=row[1], author_name=row[2]) for row in stories]
 
     def remove_story(self, user: User, story_id: int):
         cursor = self.conn.cursor()
@@ -247,6 +259,7 @@ class DB:
                 (user.id, author_id)
             ).fetchall()
         return [Review(user, text=row[0], id_=row[1]) for row in reviews]
+
 
 if __name__ == '__main__':
     db = DB(':memory:')

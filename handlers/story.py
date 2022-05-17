@@ -1,6 +1,8 @@
-from utils import with_db, reshape, confirm_pattern
 from db import DB
+from utils import with_db, reshape, confirm_pattern, update_confirm_status
+from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
 from entites import User, Story
+
 from .common import get_cancel_handler
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
@@ -10,8 +12,7 @@ from telegram.ext import (
     filters
 )
 
-from consts import CONFIRM_POSITIVE, CONFIRM_ANSWERS
-from utils import update_confirm_status
+from itertools import groupby
 
 
 ADD_STORY = 'add_story'
@@ -96,9 +97,12 @@ async def add_story_confirm_callback(update: Update, context: CallbackContext.DE
 # LIST STORIES ---------------------------------------------------------------------------------------------------------
 @with_db
 async def list_stories(update: Update, context: CallbackContext.DEFAULT_TYPE, db: DB, user: User):
-    # TODO: group stories by author
-    stories = db.list_stories(user)
-    text = 'Твой список произведений:\n\n{}'.format('\n'.join(story.title for story in stories))
+    stories = groupby(db.list_stories(user), key=lambda story: story.author_name)
+    stories_list = []
+    for key, author_stories in stories:
+        author_story_lits = '{}:\n{}'.format(key, '\n'.join('    {}'.format(story.title) for story in author_stories))
+        stories_list.append(author_story_lits)
+    text = 'Твой список произведений:\n\n{}'.format('\n\n'.join(stories_list))
     await update.message.reply_text(text)
 # ----------------------------------------------------------------------------------------------------------------------
 

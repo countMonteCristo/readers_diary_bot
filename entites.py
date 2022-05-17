@@ -16,11 +16,11 @@ class Author:
 
 
 class Story:
-    def __init__(self, user: User, title: str = '', id_: int = -1):
+    def __init__(self, user: User, title: str = '', id_: int = -1, author_name: str = ''):
         self.user_id = user.id
         self.title = title
         self.author_id = None
-        self.author_name = None
+        self.author_name = author_name
         self.id = id_
 
 
